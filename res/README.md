@@ -1,6 +1,7 @@
 # Data Format
 
 n, m: # of Client, # of Facility
+
 p_i (i = 1 ... m): parity constraint
  - 0: unconstraint
  - 1: odd
