@@ -1,0 +1,5 @@
+# CLion and cmake
+.idea
+CMakeLists.txt
+cmake-build-debug
+cmake-build-release
