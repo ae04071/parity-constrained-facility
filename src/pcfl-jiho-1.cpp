@@ -8,7 +8,21 @@
 #include <thread>
 
 int main(int argc, char *argv[]) {
-    if (argc == 2 && strcmp(argv[1], "--build-only") == 0) {
+    bool cli_build_only = false, cli_verbose = false, cli_barrier = false;
+    for (int i = 1; i < argc; i++) {
+        const char *a = argv[i];
+        if (strcmp(a, "--build-only") == 0)
+            cli_build_only = true;
+        else if (strcmp(a, "--verbose") == 0)
+            cli_verbose = true;
+        else if (strcmp(a, "--barrier") == 0)
+            cli_barrier = true;
+        else {
+            fprintf(stderr, "Unknown option: %s\n", a);
+            return 1;
+        }
+    }
+    if (cli_build_only) {
         return 0;
     }
     GRBVar *open = NULL;
@@ -115,8 +129,10 @@ int main(int argc, char *argv[]) {
             model.addConstr(expr == 1, buf);
         }
 
-        // Use barrier to solve root relaxation
-        model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
+        if (cli_barrier) {
+            // Use barrier to solve root relaxation
+            model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
+        }
 
         // Solve
         model.optimize();
@@ -124,16 +140,35 @@ int main(int argc, char *argv[]) {
         // Print solution
         printf("%lf\n", model.get(GRB_DoubleAttr_ObjVal));
 
-//        for (int i = 0; i < m; i++) {
-//            printf(i ? " %lf" : "%lf", open[i].get(GRB_DoubleAttr_X));
-//        }
-//        printf("\n");
-//        for (int i = 0; i < m; i++) {
-//            for (int j = 0; j < n; j++) {
-//                printf(j ? " %lf" : "%lf", transport[i * n + j].get(GRB_DoubleAttr_X));
-//            }
-//            printf("\n");
-//        }
+        if (cli_verbose) {
+            const double integrality_tol = 0.00000001;
+            printf("Open:");
+            for (int i = 0; i < m; i++) {
+                const double x = open[i].get(GRB_DoubleAttr_X);
+                if (x >= -integrality_tol && x <= integrality_tol) {
+                    //0
+                } else if (x >= 1 - integrality_tol && x <= 1 + integrality_tol) {
+                    printf(" %d", i);
+                } else {
+                    printf(" %d:NotInteger", i);
+                }
+            }
+            printf("\n");
+            for (int i = 0; i < m; i++) {
+                printf("Transport[%d]:", i);
+                for (int j = 0; j < n; j++) {
+                    const double x = transport[i * n + j].get(GRB_DoubleAttr_X);
+                    if (x >= -integrality_tol && x <= integrality_tol) {
+                        //0
+                    } else if (x >= 1 - integrality_tol && x <= 1 + integrality_tol) {
+                        printf(" %d", j);
+                    } else {
+                        printf(" %d:NotInteger", j);
+                    }
+                }
+                printf("\n");
+            }
+        }
     } catch (GRBException e) {
         fprintf(stderr, "Error code = %d\n", e.getErrorCode());
         fprintf(stderr, "%s\n", e.getMessage().c_str());
