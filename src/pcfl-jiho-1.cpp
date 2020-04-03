@@ -25,9 +25,9 @@ int main(int argc, char *argv[]) {
     if (cli_build_only) {
         return 0;
     }
-    GRBVar *open = NULL;
-    GRBVar *transport = NULL;
-    GRBVar *parity = NULL;
+    GRBVar *x = NULL;
+    GRBVar *y = NULL;
+    GRBVar *z = NULL;
 
     int n, m;
     int *p = NULL;
@@ -62,28 +62,28 @@ int main(int argc, char *argv[]) {
         model.set(GRB_IntParam_Threads, std::thread::hardware_concurrency());
 
         // Prepare vars
-        open = model.addVars(m, GRB_BINARY);
-        parity = model.addVars(m, GRB_INTEGER);
+        y = model.addVars(m, GRB_BINARY);
+        z = model.addVars(m, GRB_INTEGER);
         for (int i = 0; i < m; i++) {
             {
-                auto &v = open[i];
+                auto &v = y[i];
                 sprintf(buf, "Open%d", i);
                 v.set(GRB_DoubleAttr_Obj, o[i]);
                 v.set(GRB_StringAttr_VarName, buf);
             }
             {
-                auto &v = parity[i];
+                auto &v = z[i];
                 sprintf(buf, "Parity%d", i);
                 v.set(GRB_DoubleAttr_Obj, 0);
                 v.set(GRB_StringAttr_VarName, buf);
             }
         }
 
-        transport = model.addVars(m * n, GRB_BINARY);
+        x = model.addVars(m * n, GRB_BINARY);
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
                 int index = i * n + j;
-                auto &v = transport[index];
+                auto &v = x[index];
                 sprintf(buf, "Trans%d.%d", i, j);
                 v.set(GRB_DoubleAttr_Obj, c[index]);
                 v.set(GRB_StringAttr_VarName, buf);
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
                 sprintf(buf, "Open constraint%d.%d", i, j);
-                model.addConstr(transport[i * n + j] <= open[i], buf);
+                model.addConstr(x[i * n + j] <= y[i], buf);
             }
         }
 
@@ -107,14 +107,14 @@ int main(int argc, char *argv[]) {
             GRBLinExpr expr = 0;
             if (p[i]) {
                 for (int j = 0; j < n; j++) {
-                    expr += transport[i * n + j];
+                    expr += x[i * n + j];
                 }
                 if (p[i] == 1) {
                     sprintf(buf, "Odd%d", i);
-                    model.addConstr(parity[i] * 2 == (expr + open[i]), buf);
+                    model.addConstr(expr == z[i] * 2 + y[i], buf);
                 } else {
                     sprintf(buf, "Even%d", i);
-                    model.addConstr(parity[i] * 2 == expr, buf);
+                    model.addConstr(expr == z[i] * 2, buf);
                 }
             }
         }
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
             sprintf(buf, "Client%d", j);
             GRBLinExpr expr = 0;
             for (int i = 0; i < m; i++) {
-                expr += transport[i * n + j]; // FIXME: potential cache miss risk
+                expr += x[i * n + j];
             }
             model.addConstr(expr == 1, buf);
         }
@@ -133,6 +133,8 @@ int main(int argc, char *argv[]) {
             // Use barrier to solve root relaxation
             model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
         }
+
+        model.set(GRB_DoubleParam_MIPGap, 0);
 
         // Solve
         model.optimize();
@@ -144,10 +146,10 @@ int main(int argc, char *argv[]) {
             const double integrality_tol = 0.00000001;
             printf("Open:");
             for (int i = 0; i < m; i++) {
-                const double x = open[i].get(GRB_DoubleAttr_X);
-                if (x >= -integrality_tol && x <= integrality_tol) {
+                const double v = y[i].get(GRB_DoubleAttr_X);
+                if (v >= -integrality_tol && v <= integrality_tol) {
                     //0
-                } else if (x >= 1 - integrality_tol && x <= 1 + integrality_tol) {
+                } else if (v >= 1 - integrality_tol && v <= 1 + integrality_tol) {
                     printf(" %d", i);
                 } else {
                     printf(" %d:NotInteger", i);
@@ -157,10 +159,10 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < m; i++) {
                 printf("Transport[%d]:", i);
                 for (int j = 0; j < n; j++) {
-                    const double x = transport[i * n + j].get(GRB_DoubleAttr_X);
-                    if (x >= -integrality_tol && x <= integrality_tol) {
+                    const double v = x[i * n + j].get(GRB_DoubleAttr_X);
+                    if (v >= -integrality_tol && v <= integrality_tol) {
                         //0
-                    } else if (x >= 1 - integrality_tol && x <= 1 + integrality_tol) {
+                    } else if (v >= 1 - integrality_tol && v <= 1 + integrality_tol) {
                         printf(" %d", j);
                     } else {
                         printf(" %d:NotInteger", j);
@@ -178,7 +180,8 @@ int main(int argc, char *argv[]) {
     delete[] p;
     delete[] o;
     delete[] c;
-    delete[] open;
-    delete[] transport;
+    delete[] x;
+    delete[] y;
+    delete[] z;
     return 0;
 }
