@@ -117,21 +117,6 @@ double solve(const ProbData &d) {
 
 		cout.precision(10);
 		cout << "\nCost: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
-		double s = 0;
-
-		for(int i=0; i<d.nrFacility; i++) {
-			if(openVar[i].get(GRB_DoubleAttr_X) > 0.99) {
-				printf("%d, %.6lf\n", i, d.openCost[i]);
-				s += d.openCost[i];
-			}
-		}
-		for(int j=0; j<d.nrClient; j++) {
-			for(int i=0; i<d.nrFacility; i++) if(assignVar[i][j].get(GRB_DoubleAttr_X) > 0.9) {
-				printf("%d, %d, %.6lf\n", j, i, d.assignCost[i][j]);
-				s += d.assignCost[i][j];
-			}
-		}
-		cout << "TOTLA: " << s << endl;
 
 		return model.get(GRB_DoubleAttr_ObjVal);
 	} catch (GRBException e) {
