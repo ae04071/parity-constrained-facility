@@ -1,6 +1,7 @@
 /* Copyright 2020, Gurobi Optimization, LLC */
 
 #include "gurobi_c++.h"
+#include <boost/program_options.hpp>
 #include "ProbData.h"
 #include <string>
 #include <vector>
@@ -9,6 +10,7 @@
 #include <iostream>
 #include <thread>
 using namespace std;
+using namespace boost::program_options;
 
 // make facility and thier objective.
 GRBVar* makeOpeningVars(const ProbData &d, GRBModel &model) {
@@ -91,7 +93,7 @@ GRBVar* addConstr_Parity(const ProbData &d, GRBModel &model,
 	return cap;
 }
 
-double solve(const ProbData &d) {
+OutData solve(const ProbData &d, double tlimit=-1) {
 	try { 
 		// Create an environment
 		GRBEnv env = GRBEnv(true);
@@ -113,12 +115,20 @@ double solve(const ProbData &d) {
 
 		model.set(GRB_IntParam_Threads, std::thread::hardware_concurrency());
 		model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
+		if(tlimit >= 0) model.set(GRB_DoubleParam_TimeLimit, tlimit);
 		model.optimize();
 
-		cout.precision(10);
-		cout << "\nCost: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
+		int model_status = model.get(GRB_IntAttr_Status);
+		double cost = model.get(GRB_DoubleAttr_ObjVal);
+		double runtime = model.get(GRB_DoubleAttr_Runtime);
 
-		return model.get(GRB_DoubleAttr_ObjVal);
+		cout << fixed;
+		cout.precision(6);
+		cout << "\nCost: " << cost << endl;
+		cout << "Runtime: " << runtime << endl;
+		cout << "Status: " << model_status << endl;
+
+		return {cost, runtime, model_status};
 	} catch (GRBException e) {
 		cout << "Error code = " << e.getErrorCode() << endl;
 		cout << e.getMessage() << endl;
@@ -129,39 +139,44 @@ double solve(const ProbData &d) {
 	}
 }
 
-void writeAns(string inName, double ans) {
-	string outName = inName;
-	int idx = outName.find("input");
-	outName.erase(outName.begin()+idx, outName.begin()+idx+5);
-	outName.insert(idx, "output");
-
-	cout << outName << endl;;
-
+void writeAns(string outName, OutData ans) {
 	ofstream file;
 	file.open(outName);
-	file.precision(10);
+	file << fixed;
+	file.precision(6);
 	file << ans;
 }
 
 int main(int argc, char *argv[]) {
-	// Get a file name
-	if(argc < 2) { 
-		cout << "Enter a filename" << endl;
-		return 0;
-	}
-	string fname = argv[1];
-	cout << "File name is " << fname << endl;
-	
-	ProbData d(fname);
-	try { 
-		double ans = solve(d);
-		writeAns(fname, ans);
+	try {
+		options_description desc{"Options"};
+		desc.add_options()
+			("help,h", "Help screen")
+			("input", value<string>()->required(), "Set Input file")
+			("output", value<string>(), "Set output")
+			("TimeLimit", value<double>()->default_value(-1.0), "Time Limit(-1 is default, INF)");
+
+		variables_map vm;
+		store(parse_command_line(argc, argv, desc), vm);
+
+		if(vm.count("help")) {
+			cout << desc << endl;
+		}
+		notify(vm);
+
+		ProbData d(vm["input"].as<string>());
+		OutData ans = solve(d, vm["TimeLimit"].as<double>());
+		if(vm.count("output")) {
+			string outName = vm["output"].as<string>();
+			writeAns(outName, ans);
+		}
 	} catch (GRBException e) {
 		cout << "Error code = " << e.getErrorCode() << endl;
 		cout << e.getMessage() << endl;
 		throw e;
-	}
-	catch (...) {
+	} catch (const error &ex) {
+		std::cerr << ex.what() << '\n';
+	} catch (...) {
 		cout << "Exception during optimization" << endl;
 	}
 		

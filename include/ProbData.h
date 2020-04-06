@@ -31,4 +31,18 @@ public:
 	void clearData();
 };
 
+class OutData {
+public:
+	double cost, runtime;
+	int status;
+	
+public:
+	OutData();
+	OutData(double cost, double runtime, int status);
+
+	friend ostream& operator<<(ostream &out, const OutData &data);
+};
+
+ostream& operator<<(ostream &out, const OutData &data);
+
 #endif 

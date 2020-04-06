@@ -52,10 +52,6 @@ void ProbData::readDataFromFile(string fname) {
 				file >> assignCost[i][j];
 			}
 		}
-		cout << parityConstr[163] << ' ' << parityConstr[205] << endl;
-		cout << assignCost[1][56] << ' ' << assignCost[1][163] << endl;
-		cout << assignCost[9][205] << ' ' << assignCost[9][56] << endl;
-		cout << assignCost[133][205] << ' ' << assignCost[133][163] << endl;
 	} catch (ifstream::failure e) {
 		cerr << "Error while readeing " << fname << endl;
 		throw e;
@@ -67,3 +63,16 @@ void ProbData::clearData() {
 	openCost.clear();
 	assignCost.clear();
 }
+
+
+OutData::OutData()
+	: cost(0), runtime(0), status(0) {}
+	
+OutData::OutData(double cost, double runtime, int status)
+	: cost(cost), runtime(runtime), status(status) {}
+
+ostream& operator<<(ostream &out, const OutData &data) {
+	out << data.cost << endl << data.runtime << endl << data.status;
+	return out;
+}
+
