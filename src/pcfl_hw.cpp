@@ -116,6 +116,7 @@ OutData solve(const ProbData &d, double tlimit=-1) {
 		model.set(GRB_IntParam_Threads, std::thread::hardware_concurrency());
 		model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
 		if(tlimit >= 0) model.set(GRB_DoubleParam_TimeLimit, tlimit);
+		model.set(GRB_DoubleParam_MIPGap, 0);
 		model.optimize();
 
 		int model_status = model.get(GRB_IntAttr_Status);
