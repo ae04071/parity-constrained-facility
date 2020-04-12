@@ -9,6 +9,7 @@
 
 int main(int argc, char *argv[]) {
     bool cli_build_only = false, cli_verbose = false, cli_barrier = false;
+    unsigned int num_threads = std::thread::hardware_concurrency();
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         if (strcmp(a, "--build-only") == 0)
@@ -17,6 +18,14 @@ int main(int argc, char *argv[]) {
             cli_verbose = true;
         else if (strcmp(a, "--barrier") == 0)
             cli_barrier = true;
+        else if (strcmp(a, "--threads") == 0) {
+            i += 1;
+            if (i >= argc) {
+                fprintf(stderr, "Not enough parameters for option --threads\n");
+                return 1;
+            }
+            num_threads = atoi(argv[i]);
+        }
         else {
             fprintf(stderr, "Unknown option: %s\n", a);
             return 1;
@@ -59,7 +68,7 @@ int main(int argc, char *argv[]) {
         model.set(GRB_StringAttr_ModelName,
                 "capacity constrained facility location");
 
-        model.set(GRB_IntParam_Threads, std::thread::hardware_concurrency());
+        model.set(GRB_IntParam_Threads, num_threads);
 
         // Prepare vars
         y = model.addVars(m, GRB_BINARY);

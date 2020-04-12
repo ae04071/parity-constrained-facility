@@ -1,0 +1,5 @@
+jiho@jiho-desktop:~/Documents/20201/CSI4101/proj/parity-constrained-facility$ time (for i in {0..15}; do res/test/run.sh res/test/$i; done)
+
+real    580m55.940s
+user    1140m46.489s
+sys     210m12.146s
