@@ -14,14 +14,17 @@
 
 using namespace std;
 
+/* Model Class */
 class PCFLModel : public GRBModel {
 private:
-	int 		nrFacility, nrClient;
 	GRBEnv 		m_env;
-	GRBVar 		*m_openVar, **m_assignVar, *m_parityVar;
 	
 	double		m_timeLimit;
-	
+
+public:
+	int 		nrFacility, nrClient;
+	GRBVar 		*m_openVar, **m_assignVar, *m_parityVar;
+
 public:
 	PCFLModel(double _timeLimit);
 	
@@ -39,6 +42,26 @@ protected:
 	void addConstr_AssignWithinCap(const ProbData &d, const GRBVar *openVar, GRBVar **assignVar);
 	void addConstr_AssignOnlyOnce(const ProbData &d, GRBVar **assignVar);
 	GRBVar* addConstr_Parity(const ProbData &d, GRBVar *openVar, GRBVar **assignVar);
+};
+
+/* Setter Class */
+class PCFLModelSetter {
+private:
+	static PCFLModelSetter *instance;
+
+	static int m_iOpenPrior;
+
+	PCFLModelSetter();
+
+public:
+	static PCFLModelSetter& getInstance();
+
+	static void setModelProp(PCFLModel&);
+
+	static void do_openPrior(PCFLModel&);
+
+	static void setOpenPrior(int);
+	static int getOpenPrior();
 };
 
 #endif

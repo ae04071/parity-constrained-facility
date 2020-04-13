@@ -1,5 +1,6 @@
 #include "pcfl_model.h"
 
+/* Model Definition */
 PCFLModel::PCFLModel(double _timeLimit=30.0)
 	:m_timeLimit(_timeLimit), m_env(true), m_openVar(nullptr), m_assignVar(nullptr), m_parityVar(nullptr), GRBModel(false)
 {
@@ -25,6 +26,8 @@ void PCFLModel::setVariableProperties() {
 }
 
 void PCFLModel::run() {
+	PCFLModelSetter::getInstance().setModelProp(*this);
+
 	optimize();
 }
 
@@ -119,4 +122,38 @@ GRBVar* PCFLModel::addConstr_Parity(const ProbData &d, GRBVar *open, GRBVar **as
 		}
 	}
 	return cap;
+}
+
+/* Setter definition */
+PCFLModelSetter *PCFLModelSetter::instance = nullptr;
+int PCFLModelSetter::m_iOpenPrior = 0;
+
+PCFLModelSetter::PCFLModelSetter()
+{
+}
+
+PCFLModelSetter& PCFLModelSetter::getInstance() {
+	if(!instance)
+		instance = new PCFLModelSetter();
+
+	return *instance;
+}
+
+void PCFLModelSetter::setModelProp(PCFLModel &model) {
+	do_openPrior(model);
+}
+
+void PCFLModelSetter::do_openPrior(PCFLModel &model) {
+	if(!m_iOpenPrior) return;
+
+	for(int i=0; i<model.nrFacility; i++) {
+		model.m_openVar[i].set(GRB_IntAttr_BranchPriority, m_iOpenPrior);
+	}
+}
+
+void PCFLModelSetter::setOpenPrior(int _val) {
+	m_iOpenPrior = _val;
+}
+int PCFLModelSetter::getOpenPrior() {
+	return m_iOpenPrior;
 }
