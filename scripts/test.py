@@ -10,6 +10,8 @@ import queue
 
 def test_dir(command, input_dir, output_dir=None, error_dir=None, sol_dir=None,
         timeout=None, abs_tol=1e-4, rel_tol=1e-4, output_extract=True, jobs=1):
+    # DEBUG
+    #print(command)
     for d in (output_dir, error_dir):
         if d:
             try:
@@ -36,6 +38,9 @@ def test_dir(command, input_dir, output_dir=None, error_dir=None, sol_dir=None,
 
     for file_name in file_names:
         th = threading.Thread(target=p, args=(file_name,))
+        # DEBUG
+        #th.terminal = sys.stdout;
+
         th.start()
         threads.append(th)
 
@@ -111,8 +116,8 @@ def run_one(command, input_str, timeout=None):
     input_data = input_str.encode(errors="replace")
     try:
         start_time = time.time()
-        p = subprocess.Popen(command, stdin=subprocess.PIPE,
-                             stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
         try:
             out_data, err_data = p.communicate(input_data, timeout)
         finally:
@@ -277,6 +282,7 @@ def main(*argv):
     io_error_list = []
     runtime_error_list = []
     incorrect_list = []
+    print(options[CLI_COMMAND])
     for file_name, io_success, execute_success, correct, wct in test_dir(
             command=options[CLI_COMMAND],
             input_dir=options[CLI_INPUT_DIR],
