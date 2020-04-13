@@ -87,7 +87,7 @@ def test_one(command, in_file, out_file=None, err_file=None, sol_file=None,
     try:
         if sol_file:
             with open(sol_file) as f:
-                sol_str = f.read()
+                sol_str = f.readline()
             try:
                 out_val = float(out_extracted)
                 sol_val = float(sol_str)
