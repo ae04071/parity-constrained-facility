@@ -11,6 +11,7 @@
 #include "gurobi_c++.h"
 #include "ProbData.h"
 #include "pcfl_callback.h"
+#include "pcfl_model.h"
 
 using namespace std;
 using namespace boost::program_options;
@@ -98,34 +99,11 @@ GRBVar* addConstr_Parity(const ProbData &d, GRBModel &model,
 
 OutData solve(const ProbData &d, double tlimit=-1) {
 	try { 
-		// Create an environment
-		GRBEnv env = GRBEnv(true);
-		env.set("LogFile", "unconstrait_facility.log");
-		env.start();
+		PCFLModel model(tlimit);
+		model.constructModel(d);
+		model.run();
 
-		// Create an empty model
-		GRBModel model = GRBModel(env);
-		model.set(GRB_StringAttr_ModelName, "unconstraint facility");
-		
-		GRBVar *openVar = makeOpeningVars(d, model);
-		GRBVar **assignVar = makeAssigningVars(d, model);
-		GRBVar *capVar;
-		addConstr_AssignWithinCap(d, model, openVar, assignVar);
-		addConstr_AssignOnlyOnce(d, model, assignVar);
-		capVar = addConstr_Parity(d, model, openVar, assignVar);
-
-		cout << "Construction is done " << endl;
-
-		model.set(GRB_IntParam_Threads, std::thread::hardware_concurrency());
-		model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
-		if(tlimit >= 0) model.set(GRB_DoubleParam_TimeLimit, tlimit);
-		model.set(GRB_DoubleParam_MIPGap, 0);
-
-		GRBCallback *cb = new PCFLCallback(d.nrFacility, d.nrClient, openVar, assignVar, capVar);
-		model.setCallback(cb);
-
-		model.optimize();
-
+		/*
 		int model_status = model.get(GRB_IntAttr_Status);
 		double cost = model.get(GRB_DoubleAttr_ObjVal);
 		double runtime = model.get(GRB_DoubleAttr_Runtime);
@@ -135,8 +113,10 @@ OutData solve(const ProbData &d, double tlimit=-1) {
 		cout << "\nCost: " << cost << endl;
 		cout << "Runtime: " << runtime << endl;
 		cout << "Status: " << model_status << endl;
+		*/
 
-		return {cost, runtime, model_status};
+		//return {cost, runtime, model_status};
+		return {0, 0, 0};
 	} catch (GRBException e) {
 		cout << "Error code = " << e.getErrorCode() << endl;
 		cout << e.getMessage() << endl;
