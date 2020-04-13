@@ -103,6 +103,10 @@ OutData solve(const ProbData &d, double tlimit=GRB_INFINITY) {
 		model.constructModel(d);
 		model.run();
 
+		cout << fixed;
+		cout.precision(6);
+		cout << model.get(GRB_DoubleAttr_ObjVal) << endl;
+
 		/*
 		int model_status = model.get(GRB_IntAttr_Status);
 		double cost = model.get(GRB_DoubleAttr_ObjVal);
