@@ -7,7 +7,9 @@
 using namespace std;
 
 // Constructor
-ProbData::ProbData(): nrClient(0), nrFacility(0) {}
+ProbData::ProbData(): nrClient(0), nrFacility(0) {
+	readDataFromFile("");
+}
 
 ProbData::ProbData(const ProbData &rhs)
 	: nrClient(rhs.nrClient), nrFacility(rhs.nrFacility) {
@@ -34,22 +36,26 @@ void ProbData::readDataFromFile(string fname) {
 
 	ifstream file;
 	file.exceptions(ifstream::failbit | ifstream::badbit);
+	istream *in = &std::cin;
 	try {
-		file.open(fname);
+		if(fname != "") {
+			file.open(fname);
+			in = &file;
+		}
 
-		file >> nrClient >> nrFacility;
+		*in >> nrClient >> nrFacility;
 
 		parityConstr.resize(nrFacility);
-		for(int i=0; i<nrFacility; i++) file >> parityConstr[i];
+		for(int i=0; i<nrFacility; i++) *in >> parityConstr[i];
 
 		openCost.resize(nrFacility);
-		for(int i=0; i<nrFacility; i++) file >> openCost[i];
+		for(int i=0; i<nrFacility; i++) *in >> openCost[i];
 
 		assignCost.resize(nrFacility);
 		for(int i=0; i<nrFacility; i++) {
 			assignCost[i].resize(nrClient);
 			for(int j=0; j<nrClient; j++) {
-				file >> assignCost[i][j];
+				*in >> assignCost[i][j];
 			}
 		}
 	} catch (ifstream::failure e) {

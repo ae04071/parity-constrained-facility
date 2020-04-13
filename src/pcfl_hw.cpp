@@ -97,7 +97,7 @@ GRBVar* addConstr_Parity(const ProbData &d, GRBModel &model,
 	return cap;
 }
 
-OutData solve(const ProbData &d, double tlimit=-1) {
+OutData solve(const ProbData &d, double tlimit=GRB_INFINITY) {
 	try { 
 		PCFLModel model(tlimit);
 		model.constructModel(d);
@@ -137,6 +137,7 @@ void writeAns(string outName, OutData ans) {
 
 int main(int argc, char *argv[]) {
 	try {
+		/*
 		options_description desc{"Options"};
 		desc.add_options()
 			("help,h", "Help screen")
@@ -151,13 +152,16 @@ int main(int argc, char *argv[]) {
 			cout << desc << endl;
 		}
 		notify(vm);
+		*/
 
-		ProbData d(vm["input"].as<string>());
-		OutData ans = solve(d, vm["TimeLimit"].as<double>());
+		ProbData d;
+		OutData ans = solve(d);
+		/*
 		if(vm.count("output")) {
 			string outName = vm["output"].as<string>();
 			writeAns(outName, ans);
 		}
+		*/
 	} catch (GRBException e) {
 		cout << "Error code = " << e.getErrorCode() << endl;
 		cout << e.getMessage() << endl;
