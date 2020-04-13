@@ -1,14 +1,17 @@
 /* Copyright 2020, Gurobi Optimization, LLC */
 
-#include "gurobi_c++.h"
 #include <boost/program_options.hpp>
-#include "ProbData.h"
 #include <string>
 #include <vector>
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #include <thread>
+
+#include "gurobi_c++.h"
+#include "ProbData.h"
+#include "pcfl_callback.h"
+
 using namespace std;
 using namespace boost::program_options;
 
@@ -117,6 +120,10 @@ OutData solve(const ProbData &d, double tlimit=-1) {
 		model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
 		if(tlimit >= 0) model.set(GRB_DoubleParam_TimeLimit, tlimit);
 		model.set(GRB_DoubleParam_MIPGap, 0);
+
+		GRBCallback *cb = new PCFLCallback(d.nrFacility, d.nrClient, openVar, assignVar, capVar);
+		model.setCallback(cb);
+
 		model.optimize();
 
 		int model_status = model.get(GRB_IntAttr_Status);
