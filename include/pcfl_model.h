@@ -51,6 +51,7 @@ private:
 
 	static int m_iOpenPrior;
 	static int m_iAssignPrior;
+	static int m_iParityPrior;
 
 	PCFLModelSetter();
 
@@ -62,12 +63,15 @@ public:
 	// do setting
 	static void do_openPrior(PCFLModel&);
 	static void do_assignPrior(PCFLModel&);
+	static void do_parityPrior(PCFLModel&);
 
 	// set or get flags
 	static void 		setOpenPrior(int);
 	static int 			getOpenPrior();
 	static void 		setAssignPrior(int);
 	static int			getAssignPrior();
+	static void			setParityPrior(int);
+	static int			getParityPrior();
 };
 
 #endif
