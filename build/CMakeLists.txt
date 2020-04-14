@@ -27,7 +27,7 @@ include_directories(${COMMON_DIR})
 
 cmake_minimum_required(VERSION 3.0)
 message(${CMAKE_PROJECT_NAME})
-add_compile_options(-m64 -g -std=c++11)
+add_compile_options(-O3 -m64 -g -std=c++11)
 
 include_directories(${COMMON_DIR})
 link_directories(${LIB_DIR})
