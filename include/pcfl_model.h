@@ -53,6 +53,8 @@ private:
 	static int m_iAssignPrior;
 	static int m_iParityPrior;
 
+	static bool m_bAssignLazy;
+
 	PCFLModelSetter();
 
 public:
@@ -72,6 +74,9 @@ public:
 	static int			getAssignPrior();
 	static void			setParityPrior(int);
 	static int			getParityPrior();
+
+	static void			setAssignLazy(bool);
+	static bool			getAssignLazy();
 };
 
 #endif

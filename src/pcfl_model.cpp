@@ -23,10 +23,16 @@ void PCFLModel::setVariableProperties() {
 	set(GRB_DoubleParam_MIPGap, 0);
 
 	GRBCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
+	setCallback(cb);
 }
 
 void PCFLModel::run() {
+	GRBCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
+	setCallback(cb);
+
 	PCFLModelSetter::getInstance().setModelProp(*this);
+
+	set(GRB_DoubleParam_MIPGap, 0);
 
 	optimize();
 }
