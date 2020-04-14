@@ -20,6 +20,7 @@ void prefetch(variables_map &vm) {
 	//cout << "open priority: " << vm["open-prior"].as<int>() << endl;
 	
 	PCFLModelSetter::getInstance().setOpenPrior(vm["open-prior"].as<int>());
+	PCFLModelSetter::getInstance().setAssignPrior(vm["assign-prior"].as<int>());
 }
 
 OutData solve(const ProbData &d, double tlimit=GRB_INFINITY) {
@@ -70,6 +71,7 @@ int main(int argc, char *argv[]) {
 		desc.add_options()
 			("help,h", "Help screen")
 			("open-prior", value<int>()->default_value(0), "Assign branch priority of open variable")
+			("assign-prior", value<int>()->default_value(0), "Assign branch priority of assign variable")
 			/*
 			("input", value<string>()->required(), "Set Input file")
 			("output", value<string>(), "Set output")

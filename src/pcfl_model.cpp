@@ -127,6 +127,7 @@ GRBVar* PCFLModel::addConstr_Parity(const ProbData &d, GRBVar *open, GRBVar **as
 /* Setter definition */
 PCFLModelSetter *PCFLModelSetter::instance = nullptr;
 int PCFLModelSetter::m_iOpenPrior = 0;
+int PCFLModelSetter::m_iAssignPrior = 0;
 
 PCFLModelSetter::PCFLModelSetter()
 {
@@ -141,6 +142,7 @@ PCFLModelSetter& PCFLModelSetter::getInstance() {
 
 void PCFLModelSetter::setModelProp(PCFLModel &model) {
 	do_openPrior(model);
+	do_assignPrior(model);
 }
 
 void PCFLModelSetter::do_openPrior(PCFLModel &model) {
@@ -150,10 +152,25 @@ void PCFLModelSetter::do_openPrior(PCFLModel &model) {
 		model.m_openVar[i].set(GRB_IntAttr_BranchPriority, m_iOpenPrior);
 	}
 }
+void PCFLModelSetter::do_assignPrior(PCFLModel &model) {
+	if(!m_iAssignPrior) return;
+
+	for(int i=0; i<model.nrFacility; i++) {
+		for(int j=0; j<model.nrClient; j++) {
+			model.m_assignVar[i][j].set(GRB_IntAttr_BranchPriority, m_iAssignPrior);
+		}
+	}
+}
 
 void PCFLModelSetter::setOpenPrior(int _val) {
 	m_iOpenPrior = _val;
 }
 int PCFLModelSetter::getOpenPrior() {
 	return m_iOpenPrior;
+}
+void PCFLModelSetter::setAssignPrior(int _val) {
+	m_iAssignPrior = _val;
+}
+int PCFLModelSetter::getAssignPrior() {
+	return m_iAssignPrior;
 }

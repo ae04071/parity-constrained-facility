@@ -50,6 +50,7 @@ private:
 	static PCFLModelSetter *instance;
 
 	static int m_iOpenPrior;
+	static int m_iAssignPrior;
 
 	PCFLModelSetter();
 
@@ -58,10 +59,15 @@ public:
 
 	static void setModelProp(PCFLModel&);
 
+	// do setting
 	static void do_openPrior(PCFLModel&);
+	static void do_assignPrior(PCFLModel&);
 
-	static void setOpenPrior(int);
-	static int getOpenPrior();
+	// set or get flags
+	static void 		setOpenPrior(int);
+	static int 			getOpenPrior();
+	static void 		setAssignPrior(int);
+	static int			getAssignPrior();
 };
 
 #endif
