@@ -24,6 +24,7 @@ private:
 public:
 	int 		nrFacility, nrClient;
 	GRBVar 		*m_openVar, **m_assignVar, *m_parityVar;
+	GRBLinExpr	*m_assignConstr;
 
 public:
 	PCFLModel(double _timeLimit);

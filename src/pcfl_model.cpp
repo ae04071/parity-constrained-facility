@@ -27,8 +27,14 @@ void PCFLModel::setVariableProperties() {
 }
 
 void PCFLModel::run() {
-	GRBCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
-	setCallback(cb);
+	if(PCFLModelSetter::getInstance().getAssignLazy()) {
+		PCFLCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
+		cb->setAssignOnceConstr(m_assignConstr);
+		cb->init();
+		setCallback(cb);
+
+		set(GRB_IntParam_LazyConstraints, 1);
+	}
 
 	PCFLModelSetter::getInstance().setModelProp(*this);
 
@@ -49,6 +55,9 @@ PCFLModel::~PCFLModel() {
 		for(int i=0;i<nrFacility;i++) delete []m_assignVar[i];
 		delete []m_assignVar;
 	}
+
+	if(m_assignConstr)
+		delete []m_assignConstr;
 }
 	
 
@@ -95,14 +104,19 @@ void PCFLModel::addConstr_AssignWithinCap(const ProbData &d, const GRBVar *open,
 	}
 }
 void PCFLModel::addConstr_AssignOnlyOnce(const ProbData &d,	GRBVar **assign) {
+	m_assignConstr = new GRBLinExpr[d.nrClient];
 	for(int j=0; j<d.nrClient; j++) {
-		GRBLinExpr sum = 0;
+		GRBLinExpr &sum = m_assignConstr[j];
 		for(int i=0; i<d.nrFacility; i++) {
 			sum += assign[i][j];
 		}
 		ostringstream cname;
 		cname << "Within One " << j;
-		addConstr(sum == 1, cname.str());
+
+		if(PCFLModelSetter::getInstance().getAssignLazy()) 
+			addConstr(sum >= 1, cname.str());
+		else
+			addConstr(sum == 1, cname.str());
 	}
 }
 GRBVar* PCFLModel::addConstr_Parity(const ProbData &d, GRBVar *open, GRBVar **assign) {
@@ -135,6 +149,8 @@ PCFLModelSetter *PCFLModelSetter::instance = nullptr;
 int PCFLModelSetter::m_iOpenPrior = 0;
 int PCFLModelSetter::m_iAssignPrior = 0;
 int PCFLModelSetter::m_iParityPrior = 0;
+
+bool PCFLModelSetter::m_bAssignLazy = false;
 
 PCFLModelSetter::PCFLModelSetter()
 {
@@ -194,4 +210,11 @@ void PCFLModelSetter::setParityPrior(int _val) {
 }
 int PCFLModelSetter::getParityPrior() {
 	return m_iParityPrior;
+}
+
+void PCFLModelSetter::setAssignLazy(bool _val) {
+	m_bAssignLazy = _val;
+}
+bool PCFLModelSetter::getAssignLazy() {
+	return m_bAssignLazy;
 }
