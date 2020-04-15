@@ -7,6 +7,7 @@
 #include <sstream>
 #include <iostream>
 #include <thread>
+#include <set>
 
 #include "gurobi_c++.h"
 #include "ProbData.h"
@@ -38,6 +39,44 @@ OutData solve(const ProbData &d, double tlimit=GRB_INFINITY) {
 		int model_status = model.get(GRB_IntAttr_Status);
 		double cost = model.get(GRB_DoubleAttr_ObjVal);
 		double runtime = model.get(GRB_DoubleAttr_Runtime);
+
+		/*
+		vector<pair<int, set<int>>> arr;
+		for(int i=0; i<d.nrFacility; i++) {
+			double cost = model.m_openVar[i].get(GRB_DoubleAttr_X);
+			if(cost > 0.5) {
+				set<int> tr;
+				for(int j=0; j<d.nrClient;j++) {
+					double c = model.m_assignVar[i][j].get(GRB_DoubleAttr_X);
+					if(c > 0.5) tr.insert(j);
+				}
+				arr.push_back({i, tr});
+			}
+		}
+		cout << endl;
+
+		for(int i=0;i<arr.size();i++) {
+			for(int j=i+1;j<arr.size();j++) {
+				for(auto &idx: arr[i].second) {
+					if(arr[j].second.find(idx) != arr[j].second.end()) {
+						cout << "Conflict " << arr[i].first << ' ' << arr[j].first << ' ' << idx << endl;
+					}
+				}
+			}
+		}
+
+		for(int j=0; j<d.nrClient; j++) {
+			double sum=0;
+			for(int i=0; i<d.nrFacility; i++) {
+				double cost = model.m_assignVar[i][j].get(GRB_DoubleAttr_X);
+				if(cost > 0.1 && cost < 0.9) {
+					cout << j << ' ' << i << endl;
+				}
+				sum += cost;
+			}
+			if(j == 84) cout << j << ' ' << sum << endl;
+		}
+		*/
 
 		/*
 		cout << fixed;

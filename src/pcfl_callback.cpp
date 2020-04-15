@@ -85,7 +85,7 @@ void PCFLCallback::callback() {
 					for(int i=0; i<nrFacility; i++) sum += x[i][j];
 					// tolerance needed 
 					if(sum > 1.01) {
-						addLazy(*assignOnceConstr <= 1);
+						addLazy(assignOnceConstr[j] <= 1);
 						assignOnceCheck[j] = true;
 					}
 				}
