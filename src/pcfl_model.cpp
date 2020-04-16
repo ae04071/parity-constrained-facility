@@ -27,14 +27,14 @@ void PCFLModel::setVariableProperties() {
 }
 
 void PCFLModel::run() {
+	PCFLCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
 	if(PCFLModelSetter::getInstance().getAssignLazy()) {
-		PCFLCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
 		cb->setAssignOnceConstr(m_assignConstr);
-		cb->init();
-		setCallback(cb);
 
 		set(GRB_IntParam_LazyConstraints, 1);
 	}
+	cb->init();
+	setCallback(cb);
 
 	PCFLModelSetter::getInstance().setModelProp(*this);
 
