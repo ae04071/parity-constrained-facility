@@ -4,6 +4,7 @@
 #include "gurobi_c++.h"
 #include "ProbData.h"
 #include "pcfl_callback.h"
+#include "pcfl_flag_manager.h"
 
 #include <string>
 #include <vector>
@@ -56,6 +57,8 @@ private:
 
 	static bool m_bAssignLazy;
 
+	static int m_iLazyConstr;
+
 	PCFLModelSetter();
 
 public:
@@ -78,6 +81,10 @@ public:
 
 	static void			setAssignLazy(bool);
 	static bool			getAssignLazy();
+
+	static void			setLazyConstr(int);
+	static void			unsetLazyConstr(int);
+	static int			getLazyConstr();
 };
 
 #endif

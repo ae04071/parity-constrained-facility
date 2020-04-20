@@ -71,7 +71,7 @@ def test_one(command, in_file, out_file=None, err_file=None, sol_file=None,
     try:
         if out_file:
             with open(out_file, "w") as f:
-                f.write(out_extracted if output_extract else out_str)
+                f.write((out_extracted if output_extract else out_str) + "\n" + str(wct))
     except OSError:
         print("in_file: " + in_file, file=sys.stderr)
         traceback.print_exc()
@@ -120,6 +120,7 @@ def run_one(command, input_str, timeout=None):
         end_time = time.time()
     except subprocess.SubprocessError as e:
         return e, None, None, None
+
     return_code = p.returncode
     wall_clock_time = end_time - start_time
     err_str = err_data.decode(errors="replace")

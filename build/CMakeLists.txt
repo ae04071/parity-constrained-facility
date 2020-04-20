@@ -13,6 +13,8 @@ ${MAIN_DIR}/pcfl_hw.cpp
 ${MAIN_DIR}/pcfl_model.cpp
 ${MAIN_DIR}/pcfl_callback.cpp
 ${MAIN_DIR}/ProbData.cpp
+${MAIN_DIR}/pcfl_flag_manager.cpp
+${MAIN_DIR}/pcfl_utility.cpp
 )
 
 # Add include list

@@ -24,6 +24,7 @@ void prefetch(variables_map &vm) {
 	PCFLModelSetter::getInstance().setAssignPrior(vm["assign-prior"].as<int>());
 	PCFLModelSetter::getInstance().setParityPrior(vm["parity-prior"].as<int>());
 	PCFLModelSetter::getInstance().setAssignLazy(vm["assign-once-lazy"].as<int>() == 0 ? false : true);
+	PCFLModelSetter::getInstance().setLazyConstr(vm["lazy-btw-fac"].as<int>() == 0 ? 0 : BTW_FACILITY);
 }
 
 OutData solve(const ProbData &d, double tlimit=GRB_INFINITY) {
@@ -111,10 +112,12 @@ int main(int argc, char *argv[]) {
 		options_description desc{"Options"};
 		desc.add_options()
 			("help,h", "Help screen")
+			("trace-solution", value<int>()->default_value(0), "Trace solution of IP")
 			("open-prior", value<int>()->default_value(0), "Assign branch priority of open variable")
 			("assign-prior", value<int>()->default_value(0), "Assign branch priority of assign variable")
 			("parity-prior", value<int>()->default_value(0), "Assign branch priority of parity variable")
 			("assign-once-lazy", value<int>()->default_value(0), "Assign branch priority of parity variable")
+			("lazy-btw-fac", value<int>()->default_value(0), "Set lazy condtion - between two facility")
 			/*
 			("input", value<string>()->required(), "Set Input file")
 			("output", value<string>(), "Set output")
@@ -130,9 +133,9 @@ int main(int argc, char *argv[]) {
 		}
 		notify(vm);
 
-		ProbData d;
+		PCFLUtility::getInstance().setInput("");
 		prefetch(vm);
-		OutData ans = solve(d);
+		OutData ans = solve(*(PCFLUtility::getInstance().getInput()));
 		/*
 		if(vm.count("output")) {
 			string outName = vm["output"].as<string>();

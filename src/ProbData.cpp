@@ -8,7 +8,6 @@ using namespace std;
 
 // Constructor
 ProbData::ProbData(): nrClient(0), nrFacility(0) {
-	readDataFromFile("");
 }
 
 ProbData::ProbData(const ProbData &rhs)

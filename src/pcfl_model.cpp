@@ -7,6 +7,7 @@ PCFLModel::PCFLModel(double _timeLimit=30.0)
 }
 
 void PCFLModel::constructModel(const ProbData &d) {
+	// Base constraint
 	nrFacility = d.nrFacility;
 	nrClient = d.nrClient;
 	m_openVar = makeOpeningVars(d);
@@ -14,6 +15,23 @@ void PCFLModel::constructModel(const ProbData &d) {
 	addConstr_AssignWithinCap(d, m_openVar, m_assignVar);
 	addConstr_AssignOnlyOnce(d, m_assignVar);
 	m_parityVar = addConstr_Parity(d, m_openVar, m_assignVar);
+
+	// set callback and related one
+	PCFLCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
+	if(PCFLModelSetter::getInstance().getAssignLazy()) {
+		cb->setAssignOnceConstr(m_assignConstr);
+		set(GRB_IntParam_LazyConstraints, 1);
+	}
+	if(getFlag(PCFLModelSetter::getInstance().getLazyConstr(), BTW_FACILITY)) {
+		cb->setLazyConstr(BTW_FACILITY);
+		set(GRB_IntParam_LazyConstraints, 1);
+	}
+	cb->init();
+	setCallback(cb);
+
+	// set some extra condition for IP
+	PCFLModelSetter::getInstance().setModelProp(*this);
+	set(GRB_DoubleParam_MIPGap, 0);
 }
 
 void PCFLModel::setVariableProperties() {
@@ -27,19 +45,6 @@ void PCFLModel::setVariableProperties() {
 }
 
 void PCFLModel::run() {
-	PCFLCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
-	if(PCFLModelSetter::getInstance().getAssignLazy()) {
-		cb->setAssignOnceConstr(m_assignConstr);
-
-		set(GRB_IntParam_LazyConstraints, 1);
-	}
-	cb->init();
-	setCallback(cb);
-
-	PCFLModelSetter::getInstance().setModelProp(*this);
-
-	set(GRB_DoubleParam_MIPGap, 0);
-
 	optimize();
 }
 
@@ -152,6 +157,8 @@ int PCFLModelSetter::m_iParityPrior = 0;
 
 bool PCFLModelSetter::m_bAssignLazy = false;
 
+int PCFLModelSetter::m_iLazyConstr = 0;
+
 PCFLModelSetter::PCFLModelSetter()
 {
 }
@@ -217,4 +224,14 @@ void PCFLModelSetter::setAssignLazy(bool _val) {
 }
 bool PCFLModelSetter::getAssignLazy() {
 	return m_bAssignLazy;
+}
+
+void PCFLModelSetter::setLazyConstr(int f) {
+	setFlag(m_iLazyConstr, f);
+}
+void PCFLModelSetter::unsetLazyConstr(int f) {
+	unsetFlag(m_iLazyConstr, f);
+}
+int PCFLModelSetter::getLazyConstr() {
+	return m_iLazyConstr;
 }

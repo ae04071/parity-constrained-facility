@@ -1,7 +1,11 @@
+		
 #ifndef __PCFL_CALLBACK_H__
 #define __PCFL_CALLBACK_H__
 
 #include "gurobi_c++.h"
+#include "pcfl_flag_manager.h"
+#include "pcfl_utility.h"
+
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -19,6 +23,10 @@ public:
 	bool*			assignOnceCheck;
 	GRBLinExpr*		assignOnceConstr;
 
+	bool			**btwFacilityCheck;
+
+	int				lazyConstr;
+
 public:
 	PCFLCallback();
 	PCFLCallback(int _nrFacility, int _nrClient,
@@ -30,6 +38,8 @@ public:
 
 	// Linear expression of sum(x_ij) == 1
 	void setAssignOnceConstr(GRBLinExpr*);
+
+	void setLazyConstr(int);
 
 protected:
 	void callback();

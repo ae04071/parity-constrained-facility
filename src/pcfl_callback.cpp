@@ -32,11 +32,16 @@ PCFLCallback::PCFLCallback(int _nrFacility, int _nrClient,
 		GRBVar *_openVar, GRBVar **_assignVar, GRBVar *_parityVar)
 	: nrFacility(_nrFacility), nrClient(_nrClient),
 	openVar(_openVar), assignVar(_assignVar), parityVar(_parityVar),
-	assignOnceFlag(false), assignOnceCheck(nullptr), assignOnceConstr(nullptr) {}
+	assignOnceFlag(false), assignOnceCheck(nullptr), assignOnceConstr(nullptr),
+	lazyConstr(0), btwFacilityCheck(nullptr) {}
 
 PCFLCallback::~PCFLCallback() {
 	if(assignOnceFlag) {
 		delete []assignOnceCheck;
+	}
+	if(btwFacilityCheck) {
+		for(int i=0; i<nrFacility; i++) delete []btwFacilityCheck[i];
+		delete []btwFacilityCheck;
 	}
 }
 
@@ -44,6 +49,10 @@ void PCFLCallback::init() {
 	if(assignOnceFlag) {
 		assignOnceCheck = new bool[nrClient];
 		fill(assignOnceCheck, assignOnceCheck+nrClient, false);
+	}
+	if(getFlag(lazyConstr, BTW_FACILITY)) {
+		btwFacilityCheck = new bool*[nrFacility];
+		for(int i=0; i<nrFacility; i++) btwFacilityCheck[i] = new bool[nrFacility];
 	}
 }
 
@@ -55,6 +64,10 @@ void PCFLCallback::setAssignOnceConstr(GRBLinExpr *expr) {
 		assignOnceFlag = false;
 		assignOnceConstr = nullptr;
 	}
+}
+
+void PCFLCallback::setLazyConstr(int f) {
+	setFlag(lazyConstr, f);
 }
 
 void PCFLCallback::callback() {
@@ -93,6 +106,33 @@ void PCFLCallback::callback() {
 				for(int i=0; i<nrFacility; i++)
 					delete []x[i];
 				delete []x;
+			}
+			
+			if(getFlag(lazyConstr, BTW_FACILITY)) {
+				vector<int> &parityConstr = PCFLUtility::getInstance().getInput()->parityConstr;
+				vector<int> currOpenFacs;
+				double *x = getSolution(openVar, nrFacility);
+
+				// tolerance needed
+				for(int i=0; i<nrFacility; i++) if(x[i] > 0.99 && parityConstr[i]!=0) {
+					currOpenFacs.push_back(i);
+				}
+
+				for(int i=0; i<currOpenFacs.size(); i++) {
+					for(int j=0; j<currOpenFacs.size(); j++) {
+						if(i!=j && !btwFacilityCheck[i][j]) {
+							int &my = currOpenFacs[i], &other = currOpenFacs[j];
+							btwFacilityCheck[my][other] = true;
+							vector<int> shorts = PCFLUtility::getInstance().getShorterClients(my, other);
+							int sz = shorts.size();
+							GRBLinExpr extConstr;
+							for(int &client: shorts) {
+								extConstr += assignVar[other][client];
+							}
+							addLazy(extConstr <= sz + 1 - sz * openVar[my]);
+						}
+					}
+				}
 			}
 			/*
 			cout << "######################### MIPSOL INFO #####################################" << endl;
