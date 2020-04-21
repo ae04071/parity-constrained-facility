@@ -23,9 +23,13 @@ private:
 	double		m_timeLimit;
 
 public:
+	// base problem data
 	int 		nrFacility, nrClient;
 	GRBVar 		*m_openVar, **m_assignVar, *m_parityVar;
+
+	// some extra constarint
 	GRBLinExpr	*m_assignConstr;
+	GRBTempConstr *m_parityConstr;
 
 public:
 	PCFLModel(double _timeLimit);
@@ -43,7 +47,9 @@ protected:
 	
 	void addConstr_AssignWithinCap(const ProbData &d, const GRBVar *openVar, GRBVar **assignVar);
 	void addConstr_AssignOnlyOnce(const ProbData &d, GRBVar **assignVar);
-	GRBVar* addConstr_Parity(const ProbData &d, GRBVar *openVar, GRBVar **assignVar);
+
+	GRBVar* makeConstr_Parity(const ProbData &d, GRBVar *openVar, GRBVar **assignVar);
+	void addConstr_Parity();
 };
 
 /* Setter Class */
@@ -58,6 +64,7 @@ private:
 	static bool m_bAssignLazy;
 
 	static int m_iLazyConstr;
+	static int m_iDeferConstr;
 
 	PCFLModelSetter();
 
@@ -85,6 +92,10 @@ public:
 	static void			setLazyConstr(int);
 	static void			unsetLazyConstr(int);
 	static int			getLazyConstr();
+
+	static void			setDeferConstr(int);
+	static void			unsetDeferConstr(int);
+	static int			getDeferConstr();
 };
 
 #endif

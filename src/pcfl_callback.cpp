@@ -33,7 +33,8 @@ PCFLCallback::PCFLCallback(int _nrFacility, int _nrClient,
 	: nrFacility(_nrFacility), nrClient(_nrClient),
 	openVar(_openVar), assignVar(_assignVar), parityVar(_parityVar),
 	assignOnceFlag(false), assignOnceCheck(nullptr), assignOnceConstr(nullptr),
-	lazyConstr(0), btwFacilityCheck(nullptr) {}
+	lazyConstr(0), btwFacilityCheck(nullptr), parityConstrCheck(nullptr),
+	parityExpr(nullptr) {}
 
 PCFLCallback::~PCFLCallback() {
 	if(assignOnceFlag) {
@@ -42,6 +43,9 @@ PCFLCallback::~PCFLCallback() {
 	if(btwFacilityCheck) {
 		for(int i=0; i<nrFacility; i++) delete []btwFacilityCheck[i];
 		delete []btwFacilityCheck;
+	}
+	if(parityConstrCheck) {
+		delete []parityConstrCheck;
 	}
 }
 
@@ -54,6 +58,10 @@ void PCFLCallback::init() {
 		btwFacilityCheck = new bool*[nrFacility];
 		for(int i=0; i<nrFacility; i++) btwFacilityCheck[i] = new bool[nrFacility];
 	}
+	if(getFlag(lazyConstr, LAZY_PARITY_CONSTR)) {
+		parityConstrCheck = new bool[nrFacility];
+		for(int i=0; i<nrFacility; i++) parityConstrCheck[i] = false;
+	}
 }
 
 void PCFLCallback::setAssignOnceConstr(GRBLinExpr *expr) {
@@ -64,6 +72,9 @@ void PCFLCallback::setAssignOnceConstr(GRBLinExpr *expr) {
 		assignOnceFlag = false;
 		assignOnceConstr = nullptr;
 	}
+}
+void PCFLCallback::setParityExpr(GRBTempConstr *expr) {
+	parityExpr = expr;
 }
 
 void PCFLCallback::setLazyConstr(int f) {
@@ -133,7 +144,32 @@ void PCFLCallback::callback() {
 						}
 					}
 				}
+
+				delete []x;
 			}
+
+			/*
+			if(getFlag(lazyConstr, LAZY_PARITY_CONSTR)) {
+				vector<int> &parityConstr = PCFLUtility::getInstance().getInput()->parityConstr;
+				double *open = getSolution(openVar, nrFacility);
+				double **assign = new double*[nrFacility];
+				for(int i=0; i<nrFacility; i++) assign[i] = getSolution(assignVar[i], nrClient);
+
+				for(int i=0; i<nrFacility; i++) if(open[i] > 0.99 && parityConstr[i] != 0) {
+					int cnt=0;
+					for(int j=0; j<nrClient; j++) cnt += assign[i][j] > 0.99;
+					if(parityConstr[i]%2 != cnt%2) {
+						addLazy(parityExpr[i]);
+						parityConstrCheck[i] = true;
+					}
+				}
+
+				delete []open;
+				for(int i=0; i<nrFacility; i++) delete []assign[i];
+				delete []assign;
+			}
+			*/
+
 			/*
 			cout << "######################### MIPSOL INFO #####################################" << endl;
 			double *x = getSolution(openVar, nrFacility);

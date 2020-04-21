@@ -2,7 +2,7 @@
 
 /* Model Definition */
 PCFLModel::PCFLModel(double _timeLimit=30.0)
-	:m_timeLimit(_timeLimit), m_env(true), m_openVar(nullptr), m_assignVar(nullptr), m_parityVar(nullptr), GRBModel(false)
+	:m_timeLimit(_timeLimit), m_env(true), m_openVar(nullptr), m_assignVar(nullptr), m_parityVar(nullptr), GRBModel(false), m_parityConstr(nullptr)
 {
 }
 
@@ -14,7 +14,7 @@ void PCFLModel::constructModel(const ProbData &d) {
 	m_assignVar = makeAssigningVars(d);
 	addConstr_AssignWithinCap(d, m_openVar, m_assignVar);
 	addConstr_AssignOnlyOnce(d, m_assignVar);
-	m_parityVar = addConstr_Parity(d, m_openVar, m_assignVar);
+	m_parityVar = makeConstr_Parity(d, m_openVar, m_assignVar);
 
 	// set callback and related one
 	PCFLCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
@@ -22,9 +22,12 @@ void PCFLModel::constructModel(const ProbData &d) {
 		cb->setAssignOnceConstr(m_assignConstr);
 		set(GRB_IntParam_LazyConstraints, 1);
 	}
-	if(getFlag(PCFLModelSetter::getInstance().getLazyConstr(), BTW_FACILITY)) {
-		cb->setLazyConstr(BTW_FACILITY);
+	if(PCFLModelSetter::getInstance().getLazyConstr()) {
+		cb->setLazyConstr(PCFLModelSetter::getInstance().getLazyConstr());
 		set(GRB_IntParam_LazyConstraints, 1);
+
+		if(getFlag(PCFLModelSetter::getInstance().getLazyConstr(), LAZY_PARITY_CONSTR))
+			cb->setParityExpr(m_parityConstr);
 	}
 	cb->init();
 	setCallback(cb);
@@ -46,6 +49,13 @@ void PCFLModel::setVariableProperties() {
 
 void PCFLModel::run() {
 	optimize();
+	if(PCFLModelSetter::getInstance().getDeferConstr()) {
+		int defer_flag = PCFLModelSetter::getInstance().getDeferConstr();
+		if(getFlag(defer_flag, DEFER_PARITY_CONSTR)) 
+			addConstr_Parity();
+
+		optimize();
+	}
 }
 
 PCFLModel::~PCFLModel() {
@@ -63,6 +73,9 @@ PCFLModel::~PCFLModel() {
 
 	if(m_assignConstr)
 		delete []m_assignConstr;
+
+	if(m_parityConstr) 
+		delete []m_parityConstr;
 }
 	
 
@@ -118,35 +131,44 @@ void PCFLModel::addConstr_AssignOnlyOnce(const ProbData &d,	GRBVar **assign) {
 		ostringstream cname;
 		cname << "Within One " << j;
 
-		if(PCFLModelSetter::getInstance().getAssignLazy()) 
+		if(PCFLModelSetter::getInstance().getAssignLazy())
 			addConstr(sum >= 1, cname.str());
 		else
 			addConstr(sum == 1, cname.str());
 	}
 }
-GRBVar* PCFLModel::addConstr_Parity(const ProbData &d, GRBVar *open, GRBVar **assign) {
+GRBVar* PCFLModel::makeConstr_Parity(const ProbData &d, GRBVar *open, GRBVar **assign) {
 	GRBVar *cap = addVars(d.nrFacility, GRB_INTEGER);
 	for(int i=0; i<d.nrFacility; i++) {
 		cap[i].set(GRB_DoubleAttr_Obj, 0);
 		cap[i].set(GRB_DoubleAttr_LB, 0);
 	}
 
+	m_parityConstr = new GRBTempConstr[d.nrFacility];
 	for(int i=0; i<d.nrFacility; i++) {
 		if(d.parityConstr[i]!=0) {
 			GRBLinExpr sum = 0;
 			for(int j=0; j<d.nrClient; j++) {
 				sum += assign[i][j];
 			}
-			ostringstream cname;
-			cname << "Parity constraint for facility " << i;
-			if(d.parityConstr[i]==1) {
-				addConstr(sum == 2 * cap[i] + open[i], cname.str());
-			} else {
-				addConstr(sum == 2 * cap[i], cname.str());
-			}
+			m_parityConstr[i] = (d.parityConstr[i] == 1) ? 
+				(sum == 2*cap[i] + open[i]) :
+				(sum == 2*cap[i]);
 		}
 	}
+	if(!getFlag(PCFLModelSetter::getInstance().getDeferConstr(), DEFER_PARITY_CONSTR))
+		addConstr_Parity();
 	return cap;
+}
+
+void PCFLModel::addConstr_Parity() {
+	vector<int> &parity_constr = PCFLUtility::getInstance().getInput()->parityConstr;
+	for(int i=0; i<nrFacility; i++) if(parity_constr[i]) {
+		ostringstream cname;
+		cname << "Parity constraint for facility " << i;
+		GRBConstr tmp = addConstr(m_parityConstr[i], cname.str());
+		tmp.set(GRB_IntAttr_Lazy, 2);
+	}
 }
 
 /* Setter definition */
@@ -158,6 +180,7 @@ int PCFLModelSetter::m_iParityPrior = 0;
 bool PCFLModelSetter::m_bAssignLazy = false;
 
 int PCFLModelSetter::m_iLazyConstr = 0;
+int PCFLModelSetter::m_iDeferConstr = 0;
 
 PCFLModelSetter::PCFLModelSetter()
 {
@@ -234,4 +257,14 @@ void PCFLModelSetter::unsetLazyConstr(int f) {
 }
 int PCFLModelSetter::getLazyConstr() {
 	return m_iLazyConstr;
+}
+
+void PCFLModelSetter::setDeferConstr(int f) {
+	setFlag(m_iDeferConstr, f);
+}
+void PCFLModelSetter::unsetDeferConstr(int f) {
+	unsetFlag(m_iDeferConstr, f);
+}
+int PCFLModelSetter::getDeferConstr() {
+	return m_iDeferConstr;
 }

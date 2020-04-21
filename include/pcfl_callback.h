@@ -24,6 +24,8 @@ public:
 	GRBLinExpr*		assignOnceConstr;
 
 	bool			**btwFacilityCheck;
+	bool			*parityConstrCheck;
+	GRBTempConstr 	*parityExpr;
 
 	int				lazyConstr;
 
@@ -38,6 +40,7 @@ public:
 
 	// Linear expression of sum(x_ij) == 1
 	void setAssignOnceConstr(GRBLinExpr*);
+	void setParityExpr(GRBTempConstr*);
 
 	void setLazyConstr(int);
 

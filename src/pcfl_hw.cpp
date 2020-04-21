@@ -25,6 +25,8 @@ void prefetch(variables_map &vm) {
 	PCFLModelSetter::getInstance().setParityPrior(vm["parity-prior"].as<int>());
 	PCFLModelSetter::getInstance().setAssignLazy(vm["assign-once-lazy"].as<int>() == 0 ? false : true);
 	PCFLModelSetter::getInstance().setLazyConstr(vm["lazy-btw-fac"].as<int>() == 0 ? 0 : BTW_FACILITY);
+	PCFLModelSetter::getInstance().setDeferConstr(vm["defer-parity-constr"].as<int>() == 0 ? 0 : DEFER_PARITY_CONSTR);
+	PCFLModelSetter::getInstance().setLazyConstr(vm["lazy-parity-constr"].as<int>() == 0 ? 0 : LAZY_PARITY_CONSTR);
 }
 
 OutData solve(const ProbData &d, double tlimit=GRB_INFINITY) {
@@ -66,16 +68,15 @@ OutData solve(const ProbData &d, double tlimit=GRB_INFINITY) {
 			}
 		}
 
-		for(int j=0; j<d.nrClient; j++) {
+		for(int i=0; i<d.nrFacility; i++) {
 			double sum=0;
-			for(int i=0; i<d.nrFacility; i++) {
+			for(int j=0; j<d.nrClient; j++) {
 				double cost = model.m_assignVar[i][j].get(GRB_DoubleAttr_X);
-				if(cost > 0.1 && cost < 0.9) {
-					cout << j << ' ' << i << endl;
+				if(cost > 0.5) {
+					sum += 1;
 				}
-				sum += cost;
 			}
-			if(j == 84) cout << j << ' ' << sum << endl;
+			cout << i << ' ' << model.m_openVar[i].get(GRB_DoubleAttr_X) << ' ' << d.parityConstr[i] << ' ' << sum << endl;
 		}
 		*/
 
@@ -113,11 +114,17 @@ int main(int argc, char *argv[]) {
 		desc.add_options()
 			("help,h", "Help screen")
 			("trace-solution", value<int>()->default_value(0), "Trace solution of IP")
+			// Issue #2
 			("open-prior", value<int>()->default_value(0), "Assign branch priority of open variable")
 			("assign-prior", value<int>()->default_value(0), "Assign branch priority of assign variable")
 			("parity-prior", value<int>()->default_value(0), "Assign branch priority of parity variable")
+			// Issue #3
 			("assign-once-lazy", value<int>()->default_value(0), "Assign branch priority of parity variable")
+			// Issue #4
 			("lazy-btw-fac", value<int>()->default_value(0), "Set lazy condtion - between two facility")
+
+			("defer-parity-constr", value<int>()->default_value(0), "Presolve origin problem(facility location) first, and then, solve our problem")
+			("lazy-parity-constr", value<int>()->default_value(0), "Make parity constraint lazily.")
 			/*
 			("input", value<string>()->required(), "Set Input file")
 			("output", value<string>(), "Set output")
