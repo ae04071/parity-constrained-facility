@@ -27,6 +27,8 @@ void prefetch(variables_map &vm) {
 	PCFLModelSetter::getInstance().setLazyConstr(vm["lazy-btw-fac"].as<int>() == 0 ? 0 : BTW_FACILITY);
 	PCFLModelSetter::getInstance().setDeferConstr(vm["defer-parity-constr"].as<int>() == 0 ? 0 : DEFER_PARITY_CONSTR);
 	PCFLModelSetter::getInstance().setLazyConstr(vm["lazy-parity-constr"].as<int>() == 0 ? 0 : LAZY_PARITY_CONSTR);
+	PCFLModelSetter::getInstance().addConstr(DIST_BASE_CONSTR, vm["add-dist-assign"].as<int>());
+	PCFLModelSetter::getInstance().setState(vm["state-unconstr"].as<int>() == 0 ? 0 : STATE_UNCONSTRAINED);
 }
 
 OutData solve(const ProbData &d, double tlimit=GRB_INFINITY) {
@@ -123,8 +125,14 @@ int main(int argc, char *argv[]) {
 			// Issue #4
 			("lazy-btw-fac", value<int>()->default_value(0), "Set lazy condtion - between two facility")
 
+			// Issue #5
 			("defer-parity-constr", value<int>()->default_value(0), "Presolve origin problem(facility location) first, and then, solve our problem")
 			("lazy-parity-constr", value<int>()->default_value(0), "Make parity constraint lazily.")
+
+			// Issue #6
+			("add-dist-assign", value<int>()->default_value(0), "Make additional constraint: distnace-based constraint")
+
+			("state-unconstr", value<int>()->default_value(0), "Solve unconstrained PCFL problem")
 			/*
 			("input", value<string>()->required(), "Set Input file")
 			("output", value<string>(), "Set output")

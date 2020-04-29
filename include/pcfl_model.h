@@ -50,6 +50,8 @@ protected:
 
 	GRBVar* makeConstr_Parity(const ProbData &d, GRBVar *openVar, GRBVar **assignVar);
 	void addConstr_Parity();
+
+	void addConstr_DistAssign(const ProbData&, GRBVar*, GRBVar**);
 };
 
 /* Setter Class */
@@ -65,7 +67,12 @@ private:
 
 	static int m_iLazyConstr;
 	static int m_iDeferConstr;
+	static int m_iState;
 
+public:
+	static int m_iDistAssignRatio;
+
+private:
 	PCFLModelSetter();
 
 public:
@@ -96,6 +103,12 @@ public:
 	static void			setDeferConstr(int);
 	static void			unsetDeferConstr(int);
 	static int			getDeferConstr();
+	
+	static void			setState(int);
+	static void			unsetState(int);
+	static int			getState();
+
+	static void			addConstr(int, int);
 };
 
 #endif

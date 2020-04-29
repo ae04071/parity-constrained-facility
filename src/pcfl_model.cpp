@@ -15,6 +15,11 @@ void PCFLModel::constructModel(const ProbData &d) {
 	addConstr_AssignWithinCap(d, m_openVar, m_assignVar);
 	addConstr_AssignOnlyOnce(d, m_assignVar);
 	m_parityVar = makeConstr_Parity(d, m_openVar, m_assignVar);
+	
+	// extra constarint
+	if(PCFLModelSetter::getInstance().m_iDistAssignRatio) {
+		addConstr_DistAssign(d, m_openVar, m_assignVar);
+	}
 
 	// set callback and related one
 	PCFLCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
@@ -156,7 +161,8 @@ GRBVar* PCFLModel::makeConstr_Parity(const ProbData &d, GRBVar *open, GRBVar **a
 				(sum == 2*cap[i]);
 		}
 	}
-	if(!getFlag(PCFLModelSetter::getInstance().getDeferConstr(), DEFER_PARITY_CONSTR))
+	if(!getFlag(PCFLModelSetter::getInstance().getDeferConstr(), DEFER_PARITY_CONSTR) &&
+			!getFlag(PCFLModelSetter::getInstance().getState(), STATE_UNCONSTRAINED) )
 		addConstr_Parity();
 	return cap;
 }
@@ -167,7 +173,47 @@ void PCFLModel::addConstr_Parity() {
 		ostringstream cname;
 		cname << "Parity constraint for facility " << i;
 		GRBConstr tmp = addConstr(m_parityConstr[i], cname.str());
-		tmp.set(GRB_IntAttr_Lazy, 2);
+
+		if(getFlag(PCFLModelSetter::getInstance().getLazyConstr(), LAZY_PARITY_CONSTR))
+			tmp.set(GRB_IntAttr_Lazy, 2);
+	}
+}
+
+void PCFLModel::addConstr_DistAssign(const ProbData &d, GRBVar *openVar, GRBVar **assignVar) {
+	int ratio = d.nrFacility / PCFLModelSetter::getInstance().m_iDistAssignRatio;
+	const vector<vector<double>> &dist = d.assignCost;
+	const vector<int> &parity = d.parityConstr;
+
+	for(int i=0; i<d.nrFacility; i++) {
+		vector<pair<double, int>> facs(d.nrFacility);
+		for(int k=0; k<d.nrFacility; k++)
+			facs[k] = {dist[i][0] + dist[k][0], k};
+		
+		for(int k=0; k<d.nrFacility; k++) {
+			for(int j=1; j<d.nrClient; j++)
+				facs[k].first = min(facs[k].first, dist[i][j] + dist[k][j]);
+		}
+		sort(facs.begin(), facs.end(), std::greater<pair<double, int>>());
+		facs.resize(ratio);
+		
+		vector<int> shorter_clients;
+		for(int j=0; j<d.nrClient; j++) {
+			bool flag = true;
+			for(auto &k: facs) if(dist[i][j] >= dist[k.second][j]) {
+				flag = false;
+				break;
+			}
+			if(flag) shorter_clients.push_back(j);
+		}
+
+		GRBLinExpr sum = 0;
+		int DS = shorter_clients.size(), SS = 0;
+		for(auto &client: shorter_clients) {
+			for(auto &k: facs) sum += assignVar[k.second][client];
+		}
+		for(auto &k: facs) if(parity[k.second] != 0) ++SS;
+		if(parity[i] != 0) ++SS;
+		addConstr(sum <= DS - (DS - SS)*openVar[i]);
 	}
 }
 
@@ -181,6 +227,9 @@ bool PCFLModelSetter::m_bAssignLazy = false;
 
 int PCFLModelSetter::m_iLazyConstr = 0;
 int PCFLModelSetter::m_iDeferConstr = 0;
+int PCFLModelSetter::m_iState = 0;
+
+int PCFLModelSetter::m_iDistAssignRatio = 0;
 
 PCFLModelSetter::PCFLModelSetter()
 {
@@ -267,4 +316,22 @@ void PCFLModelSetter::unsetDeferConstr(int f) {
 }
 int PCFLModelSetter::getDeferConstr() {
 	return m_iDeferConstr;
+}
+
+void PCFLModelSetter::setState(int f) {
+	setFlag(m_iState, f);
+}
+void PCFLModelSetter::unsetState(int f) {
+	unsetFlag(m_iState, f);
+}
+int PCFLModelSetter::getState() {
+	return m_iState;
+}
+
+void PCFLModelSetter::addConstr(int type, int value) {
+	switch(type) {
+	case DIST_BASE_CONSTR:
+		m_iDistAssignRatio = value;
+		break;
+	}
 }
