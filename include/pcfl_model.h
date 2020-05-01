@@ -33,6 +33,7 @@ public:
 
 public:
 	PCFLModel(double _timeLimit);
+	PCFLModel(const GRBEnv &env, double _timeLimit);
 	
 	void constructModel(const ProbData &d);
 
@@ -72,6 +73,8 @@ private:
 public:
 	static int m_iDistAssignRatio;
 
+	static string m_sTraceDir;
+
 private:
 	PCFLModelSetter();
 
@@ -109,6 +112,8 @@ public:
 	static int			getState();
 
 	static void			addConstr(int, int);
+
+	static void			setTraceDir(string);
 };
 
 #endif

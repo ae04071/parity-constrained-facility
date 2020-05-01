@@ -29,11 +29,20 @@ void prefetch(variables_map &vm) {
 	PCFLModelSetter::getInstance().setLazyConstr(vm["lazy-parity-constr"].as<int>() == 0 ? 0 : LAZY_PARITY_CONSTR);
 	PCFLModelSetter::getInstance().addConstr(DIST_BASE_CONSTR, vm["add-dist-assign"].as<int>());
 	PCFLModelSetter::getInstance().setState(vm["state-unconstr"].as<int>() == 0 ? 0 : STATE_UNCONSTRAINED);
+
+	PCFLModelSetter::getInstance().setTraceDir(vm["trace-outdir"].as<string>());
 }
 
-OutData solve(const ProbData &d, double tlimit=GRB_INFINITY) {
+OutData solve(const ProbData &d, string root_dir, double tlimit=GRB_INFINITY) {
 	try { 
-		PCFLModel model(tlimit);
+		GRBEnv env = GRBEnv(true);
+		if(root_dir != "") {
+			root_dir += "_out.log";
+			env.set("LogFile", root_dir);
+		}
+		env.start();
+
+		PCFLModel model(env, tlimit);
 		model.constructModel(d);
 		model.run();
 
@@ -133,6 +142,7 @@ int main(int argc, char *argv[]) {
 			("add-dist-assign", value<int>()->default_value(0), "Make additional constraint: distnace-based constraint")
 
 			("state-unconstr", value<int>()->default_value(0), "Solve unconstrained PCFL problem")
+			("trace-outdir", value<string>()->default_value(""), "Logs Directory")
 			/*
 			("input", value<string>()->required(), "Set Input file")
 			("output", value<string>(), "Set output")
@@ -150,7 +160,7 @@ int main(int argc, char *argv[]) {
 
 		PCFLUtility::getInstance().setInput("");
 		prefetch(vm);
-		OutData ans = solve(*(PCFLUtility::getInstance().getInput()));
+		OutData ans = solve(*(PCFLUtility::getInstance().getInput()), vm["trace-outdir"].as<string>());
 		/*
 		if(vm.count("output")) {
 			string outName = vm["output"].as<string>();

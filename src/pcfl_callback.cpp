@@ -47,6 +47,12 @@ PCFLCallback::~PCFLCallback() {
 	if(parityConstrCheck) {
 		delete []parityConstrCheck;
 	}
+	if(solFile.is_open()) {
+		solFile.close();
+	}
+	if(nodeFile.is_open()) {
+		nodeFile.close();
+	}
 }
 
 void PCFLCallback::init() {
@@ -81,7 +87,14 @@ void PCFLCallback::setLazyConstr(int f) {
 	setFlag(lazyConstr, f);
 }
 
+void PCFLCallback::activateTrace(string str) {
+	solFile.open(str + "_cbsol.log");
+	nodeFile.open(str + "_cbnode.log");
+}
+
 void PCFLCallback::callback() {
+	static int prev_solcnt = -10;
+	static int prev_nodecnt = -10;
 	/*
 	if(where!=0 && where != 6 && where != 1)
 		cerr << "Current callback state: " << mapping_callback_state(where) << ' ' << where << endl;
@@ -144,6 +157,23 @@ void PCFLCallback::callback() {
 						}
 					}
 				}
+
+				delete []x;
+			}
+	
+			int solcnt = getIntInfo(GRB_CB_MIPSOL_SOLCNT);
+			int nodecnt = (int) getDoubleInfo(GRB_CB_MIPSOL_NODCNT);
+			double obj = getDoubleInfo(GRB_CB_MIPSOL_OBJ);
+			cout << "SOLCNT: " << solcnt << endl;
+			if(solFile.is_open() && solcnt - prev_solcnt != 0) {
+				prev_solcnt = solcnt;
+				double *x = getSolution(openVar, nrFacility);
+				solFile << "(" << solcnt << ' ' << nodecnt << ' ' << obj << ")" << endl;
+
+				for(int i=0; i<nrFacility; i++) if(x[i] > 0.99) {
+					solFile << i << ' ' ;
+				}
+				solFile << endl << endl;
 
 				delete []x;
 			}

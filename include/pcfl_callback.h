@@ -29,6 +29,8 @@ public:
 
 	int				lazyConstr;
 
+	ofstream		solFile, nodeFile;
+
 public:
 	PCFLCallback();
 	PCFLCallback(int _nrFacility, int _nrClient,
@@ -43,6 +45,8 @@ public:
 	void setParityExpr(GRBTempConstr*);
 
 	void setLazyConstr(int);
+
+	void activateTrace(string);
 
 protected:
 	void callback();

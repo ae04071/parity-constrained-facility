@@ -5,6 +5,10 @@ PCFLModel::PCFLModel(double _timeLimit=30.0)
 	:m_timeLimit(_timeLimit), m_env(true), m_openVar(nullptr), m_assignVar(nullptr), m_parityVar(nullptr), GRBModel(false), m_parityConstr(nullptr)
 {
 }
+PCFLModel::PCFLModel(const GRBEnv &env, double _timeLimit=30.0)
+	:m_timeLimit(_timeLimit), m_env(true), m_openVar(nullptr), m_assignVar(nullptr), m_parityVar(nullptr), GRBModel(env), m_parityConstr(nullptr)
+{
+}
 
 void PCFLModel::constructModel(const ProbData &d) {
 	// Base constraint
@@ -34,6 +38,7 @@ void PCFLModel::constructModel(const ProbData &d) {
 		if(getFlag(PCFLModelSetter::getInstance().getLazyConstr(), LAZY_PARITY_CONSTR))
 			cb->setParityExpr(m_parityConstr);
 	}
+	cb->activateTrace(PCFLModelSetter::getInstance().m_sTraceDir);
 	cb->init();
 	setCallback(cb);
 
@@ -231,6 +236,8 @@ int PCFLModelSetter::m_iState = 0;
 
 int PCFLModelSetter::m_iDistAssignRatio = 0;
 
+string PCFLModelSetter::m_sTraceDir = "";
+
 PCFLModelSetter::PCFLModelSetter()
 {
 }
@@ -334,4 +341,8 @@ void PCFLModelSetter::addConstr(int type, int value) {
 		m_iDistAssignRatio = value;
 		break;
 	}
+}
+
+void PCFLModelSetter::setTraceDir(string dir) {
+	m_sTraceDir = dir;
 }
