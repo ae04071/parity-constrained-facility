@@ -1,77 +1,59 @@
 #ifndef __PCFL_MODEL_H__
 #define __PCFL_MODEL_H__
 
-#include "gurobi_c++.h"
-#include "ProbData.h"
-#include "pcfl_callback.h"
-
-#include <string>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <thread>
-
-using namespace std;
+#include "pcfl.h"
+#include <gurobi_c++.h>
 
 /* Model Class */
 class PCFLModel : public GRBModel {
 private:
-	GRBEnv 		m_env;
-	
-	double		m_timeLimit;
 
 public:
-	int 		nrFacility, nrClient;
-	GRBVar 		*m_openVar, **m_assignVar, *m_parityVar;
+    typedef struct PCFLProbData ProbData;
+
+private:
+    class Callback: public GRBCallback {
+    private:
+        PCFLModel *model;
+
+    public:
+        explicit Callback(PCFLModel *_model);
+
+    protected:
+        void callback() override;
+    };
+    friend Callback;
+
+private:
+    GRBEnv 		m_env;
+    struct PCFLConfig config;
+    Callback m_callback;
+
+    ProbData data;
+    GRBVar      *xvar, *yvar, *zvar;
 
 public:
-	PCFLModel(double _timeLimit);
+	explicit PCFLModel();
 	
-	void constructModel(const ProbData &d);
+	void constructModel(const ProbData *d);
 
-	void setVariableProperties();
-	void run();
+	void configModel(const struct PCFLConfig *c);
 
 	~PCFLModel();
 
-protected:
-	GRBVar* makeOpeningVars(const ProbData &d);
-	GRBVar** makeAssigningVars(const ProbData &d);
-	
-	void addConstr_AssignWithinCap(const ProbData &d, const GRBVar *openVar, GRBVar **assignVar);
-	void addConstr_AssignOnlyOnce(const ProbData &d, GRBVar **assignVar);
-	GRBVar* addConstr_Parity(const ProbData &d, GRBVar *openVar, GRBVar **assignVar);
-};
+	bool getX(int i, int j, double *raw = nullptr) const;
+	bool getY(int i, double *raw = nullptr) const;
 
-/* Setter Class */
-class PCFLModelSetter {
 private:
-	static PCFLModelSetter *instance;
+    void init_vars();
+    void init_constraints();
+    void setVariableProperties();
 
-	static int m_iOpenPrior;
-	static int m_iAssignPrior;
-	static int m_iParityPrior;
+    GRBTempConstr genParityConstr(int i) const;
+    GRBTempConstr genOpenConstr(int i, int j) const;
 
-	PCFLModelSetter();
+    void criticalOpenConstrs(int cnt);
 
-public:
-	static PCFLModelSetter& getInstance();
-
-	static void setModelProp(PCFLModel&);
-
-	// do setting
-	static void do_openPrior(PCFLModel&);
-	static void do_assignPrior(PCFLModel&);
-	static void do_parityPrior(PCFLModel&);
-
-	// set or get flags
-	static void 		setOpenPrior(int);
-	static int 			getOpenPrior();
-	static void 		setAssignPrior(int);
-	static int			getAssignPrior();
-	static void			setParityPrior(int);
-	static int			getParityPrior();
 };
 
 #endif

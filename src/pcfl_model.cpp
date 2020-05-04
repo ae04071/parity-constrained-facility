@@ -1,191 +1,228 @@
-#include "pcfl_model.h"
+#include <pcfl_model.h>
+#include <string.h>
+#include <math.h>
+#include <memory>
+#include <algorithm>
+
+void pcfl_impl1(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol) {
+    try {
+        // Model
+        PCFLModel model;
+        model.configModel(config);
+        model.constructModel(data);
+
+        // Solve
+        model.optimize();
+
+        for (int i = 0; i < data->m; i++) {
+            sol->open[i] = model.getY(i);
+            for (int j = 0; j < data->n; j++) {
+                if (model.getX(i, j))
+                    sol->assign[j] = i;
+            }
+        }
+
+        if (config->validate_feasibility) {
+            for (int j = 0; j < data->n; j++) {
+                int cnt = 0;
+                for (int i = 0; i < data->m; i++) {
+                    if (model.getX(i, j))
+                        cnt++;
+                }
+                if (cnt != 1)
+                    printf("assign cnt violation(%d: %d assigns)\n", j, cnt);
+            }
+        }
+
+        sol->obj = model.get(GRB_DoubleAttr_ObjVal);
+        sol->runtime = model.get(GRB_DoubleAttr_Runtime);
+        sol->status = model.get(GRB_IntAttr_Status);
+
+        return;
+    } catch (const GRBException &e) {
+        fprintf(stderr, "Error code = %d\n", e.getErrorCode());
+        fprintf(stderr, "%s\n", e.getMessage().c_str());
+    } catch (...) {
+        fprintf(stderr, "Exception during optimization\n");
+    }
+    sol->obj = NAN;
+}
 
 /* Model Definition */
-PCFLModel::PCFLModel(double _timeLimit=30.0)
-	:m_timeLimit(_timeLimit), m_env(true), m_openVar(nullptr), m_assignVar(nullptr), m_parityVar(nullptr), GRBModel(false)
+PCFLModel::PCFLModel()
+	: m_env(true), data(),
+      GRBModel(false), m_callback(this)
 {
 }
 
-void PCFLModel::constructModel(const ProbData &d) {
-	nrFacility = d.nrFacility;
-	nrClient = d.nrClient;
-	m_openVar = makeOpeningVars(d);
-	m_assignVar = makeAssigningVars(d);
-	addConstr_AssignWithinCap(d, m_openVar, m_assignVar);
-	addConstr_AssignOnlyOnce(d, m_assignVar);
-	m_parityVar = addConstr_Parity(d, m_openVar, m_assignVar);
+void PCFLModel::constructModel(const ProbData *d) {
+    this->data.m = d->m;
+    this->data.n = d->n;
+    this->data.parity = new int[d->m];
+    this->data.opening_cost = new double[d->m];
+    this->data.assign_cost = new double[d->m * d->n];
+    memcpy(this->data.parity, d->parity, d->m * sizeof(int));
+    memcpy(this->data.opening_cost, d->opening_cost, d->m * sizeof(double));
+    memcpy(this->data.assign_cost, d->assign_cost, d->m * d->n * sizeof(double));
+
+    this->init_vars();
+    this->init_constraints();
+
+    this->setVariableProperties();
+}
+
+void PCFLModel::init_vars() {
+    char buf[64];
+    this->yvar = this->addVars(this->data.m, GRB_BINARY);
+    this->zvar = this->addVars(this->data.m, GRB_INTEGER);
+    for (int i = 0; i < this->data.m; i++) {
+        {
+            auto &v = this->yvar[i];
+            sprintf(buf, "y%d", i);
+            v.set(GRB_DoubleAttr_Obj, this->data.opening_cost[i]);
+            v.set(GRB_StringAttr_VarName, buf);
+        }
+        {
+            auto &v = this->zvar[i];
+            sprintf(buf, "z%d", i);
+            v.set(GRB_DoubleAttr_LB, 0);
+            v.set(GRB_DoubleAttr_UB, (int)((this->data.n - (2 - this->data.parity[i])) / 2));
+            v.set(GRB_DoubleAttr_Obj, 0);
+            v.set(GRB_StringAttr_VarName, buf);
+        }
+    }
+
+    this->xvar = this->addVars(this->data.m * this->data.n, GRB_BINARY);
+    for (int i = 0; i < this->data.m; i++) {
+        for (int j = 0; j < this->data.n; j++) {
+            int index = i * this->data.n + j;
+            auto &v = this->xvar[index];
+            sprintf(buf, "x%d.%d", i, j);
+            v.set(GRB_DoubleAttr_Obj, this->data.assign_cost[index]);
+            v.set(GRB_StringAttr_VarName, buf);
+        }
+    }
+}
+
+void PCFLModel::init_constraints() {
+    char buf[64];
+    const int m = this->data.m, n = this->data.n;
+
+    // assign to only open facilities
+    if (!this->config.lazy_open) {
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                sprintf(buf, "Open%d.%d", i, j);
+                this->addConstr(this->genOpenConstr(i, j), buf);
+            }
+        }
+    } else {
+        this->criticalOpenConstrs((int)fmin(pow(m * n, 0.95), m * n));
+    }
+
+    // parity
+    if (!this->config.lazy_parity) {
+        for (int i = 0; i < m; i++) {
+            if (this->data.parity[i] != 0) {
+                sprintf(buf, "Parity(%d)%d", this->data.parity[i], i);
+                this->addConstr(this->genParityConstr(i), buf);
+            }
+        }
+    }
+
+    // assign only once
+    for (int j = 0; j < n; j++) {
+        sprintf(buf, "AssignOnlyOnce%d", j);
+        GRBLinExpr expr = 0;
+        for (int i = 0; i < m; i++) {
+            expr += this->xvar[i * n + j];
+        }
+        this->addConstr(expr == 1, buf);
+    }
+}
+
+GRBTempConstr PCFLModel::genParityConstr(int i) const {
+    GRBLinExpr expr = 0;
+    int n = this->data.n;
+    GRBVar *xvars = this->xvar + i * n;
+    for (int j = 0; j < n; j++) {
+        expr += xvars[j];
+    }
+    if (this->data.parity[i] == 1)
+        expr -= this->yvar[i];
+    return expr == this->zvar[i] * 2;
+}
+
+GRBTempConstr PCFLModel::genOpenConstr(int i, int j) const {
+    return this->xvar[i * this->data.n + j] <= this->yvar[i];
 }
 
 void PCFLModel::setVariableProperties() {
-	set(GRB_IntParam_Threads, std::thread::hardware_concurrency());
-	set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
-	if(m_timeLimit >= 0) set(GRB_DoubleParam_TimeLimit, m_timeLimit);
-	set(GRB_DoubleParam_MIPGap, 0);
+    this->set(GRB_StringAttr_ModelName,
+            "parity constrained facility location");
+//	this->set(GRB_IntParam_Threads, std::thread::hardware_concurrency());
+    this->set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
+    this->set(GRB_DoubleParam_MIPGap, 0);
 
-	GRBCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);
+    this->set(GRB_IntParam_OutputFlag, 0);
+//	this->set(GRB_DoubleParam_Heuristics, 0.0);
+    this->set(GRB_IntParam_LazyConstraints, 1);
+
+    this->setCallback(&this->m_callback);
+
+    for (int i = 0; i < this->data.m * this->data.n; i++) {
+        this->xvar[i].set(GRB_IntAttr_BranchPriority, config.xprior);
+    }
+    for (int i = 0; i < this->data.m; i++) {
+        this->yvar[i].set(GRB_IntAttr_BranchPriority, config.yprior);
+        this->zvar[i].set(GRB_IntAttr_BranchPriority, config.zprior);
+    }
+    this->set(GRB_IntParam_Threads, config.threads);
+    if (config.time_limit >= 0)
+        this->set(GRB_DoubleParam_TimeLimit, config.time_limit);
 }
 
-void PCFLModel::run() {
-	PCFLModelSetter::getInstance().setModelProp(*this);
-
-	optimize();
+void PCFLModel::configModel(const struct PCFLConfig *c) {
+    this->config = *c;
 }
 
 PCFLModel::~PCFLModel() {
-	if(m_openVar) 
-		delete []m_openVar;
-
-	if(m_parityVar)
-		delete []m_parityVar;
-		
-
-	if(m_assignVar) {
-		for(int i=0;i<nrFacility;i++) delete []m_assignVar[i];
-		delete []m_assignVar;
-	}
-}
-	
-
-// make facility and thier objective.
-GRBVar* PCFLModel::makeOpeningVars(const ProbData &d) {
-	GRBVar* open = addVars(d.nrFacility, GRB_BINARY);
-	for(int i=0; i<d.nrFacility; i++) {
-		// name of varaible
-		ostringstream vname;
-		vname << "Open" << i;
-		
-		// set Object
-		open[i].set(GRB_DoubleAttr_Obj, d.openCost[i]);
-		open[i].set(GRB_StringAttr_VarName, vname.str());
-	}
-	return open;
+    delete[] this->xvar;
+    delete[] this->yvar;
+    delete[] this->zvar;
 }
 
-// mae client and thier objective.
-GRBVar** PCFLModel::makeAssigningVars(const ProbData &d) {
-	GRBVar** assign = new GRBVar* [d.nrFacility];
-	for(int i=0; i<d.nrFacility; i++) assign[i] = addVars(d.nrClient, GRB_BINARY);
-	for(int j=0; j<d.nrClient; j++) {
-		for(int i=0; i<d.nrFacility; i++) {
-			// name of variable
-			ostringstream vname;
-			vname << "Assign Client " << j << " to " << i;
-			
-			// set objective
-			assign[i][j].set(GRB_DoubleAttr_Obj, d.assignCost[i][j]);
-			assign[i][j].set(GRB_StringAttr_VarName, vname.str());
-		}
-	}
-	return assign;
+bool PCFLModel::getX(int i, int j, double *raw) const {
+    double x = this->xvar[i * this->data.n + j].get(GRB_DoubleAttr_X);
+    if (raw)
+        *raw = x;
+    return x >= 0.5;
+}
+bool PCFLModel::getY(int i, double *raw) const {
+    double y = this->yvar[i].get(GRB_DoubleAttr_X);
+    if (raw)
+        *raw = y;
+    return y >= 0.5;
 }
 
-void PCFLModel::addConstr_AssignWithinCap(const ProbData &d, const GRBVar *open, GRBVar **assign) {
-	for(int i=0; i<d.nrFacility; i++) {
-		for(int j=0; j<d.nrClient; j++) {
-			ostringstream cname;
-			cname << "Within Cap" << j << " to " << i;
-			addConstr(assign[i][j] <= open[i], cname.str());
-		}
-	}
-}
-void PCFLModel::addConstr_AssignOnlyOnce(const ProbData &d,	GRBVar **assign) {
-	for(int j=0; j<d.nrClient; j++) {
-		GRBLinExpr sum = 0;
-		for(int i=0; i<d.nrFacility; i++) {
-			sum += assign[i][j];
-		}
-		ostringstream cname;
-		cname << "Within One " << j;
-		addConstr(sum == 1, cname.str());
-	}
-}
-GRBVar* PCFLModel::addConstr_Parity(const ProbData &d, GRBVar *open, GRBVar **assign) {
-	GRBVar *cap = addVars(d.nrFacility, GRB_INTEGER);
-	for(int i=0; i<d.nrFacility; i++) {
-		cap[i].set(GRB_DoubleAttr_Obj, 0);
-		cap[i].set(GRB_DoubleAttr_LB, 0);
-	}
-
-	for(int i=0; i<d.nrFacility; i++) {
-		if(d.parityConstr[i]!=0) {
-			GRBLinExpr sum = 0;
-			for(int j=0; j<d.nrClient; j++) {
-				sum += assign[i][j];
-			}
-			ostringstream cname;
-			cname << "Parity constraint for facility " << i;
-			if(d.parityConstr[i]==1) {
-				addConstr(sum == 2 * cap[i] + open[i], cname.str());
-			} else {
-				addConstr(sum == 2 * cap[i], cname.str());
-			}
-		}
-	}
-	return cap;
-}
-
-/* Setter definition */
-PCFLModelSetter *PCFLModelSetter::instance = nullptr;
-int PCFLModelSetter::m_iOpenPrior = 0;
-int PCFLModelSetter::m_iAssignPrior = 0;
-int PCFLModelSetter::m_iParityPrior = 0;
-
-PCFLModelSetter::PCFLModelSetter()
-{
-}
-
-PCFLModelSetter& PCFLModelSetter::getInstance() {
-	if(!instance)
-		instance = new PCFLModelSetter();
-
-	return *instance;
-}
-
-void PCFLModelSetter::setModelProp(PCFLModel &model) {
-	do_openPrior(model);
-	do_assignPrior(model);
-	do_parityPrior(model);
-}
-
-void PCFLModelSetter::do_openPrior(PCFLModel &model) {
-	if(!m_iOpenPrior) return;
-
-	for(int i=0; i<model.nrFacility; i++) {
-		model.m_openVar[i].set(GRB_IntAttr_BranchPriority, m_iOpenPrior);
-	}
-}
-void PCFLModelSetter::do_assignPrior(PCFLModel &model) {
-	if(!m_iAssignPrior) return;
-
-	for(int i=0; i<model.nrFacility; i++) {
-		for(int j=0; j<model.nrClient; j++) {
-			model.m_assignVar[i][j].set(GRB_IntAttr_BranchPriority, m_iAssignPrior);
-		}
-	}
-}
-void PCFLModelSetter::do_parityPrior(PCFLModel &model) {
-	if(!m_iParityPrior) return;
-
-	for(int i=0; i<model.nrFacility; i++) {
-		model.m_parityVar[i].set(GRB_IntAttr_BranchPriority, m_iParityPrior);
-	}
-}
-
-void PCFLModelSetter::setOpenPrior(int _val) {
-	m_iOpenPrior = _val;
-}
-int PCFLModelSetter::getOpenPrior() {
-	return m_iOpenPrior;
-}
-void PCFLModelSetter::setAssignPrior(int _val) {
-	m_iAssignPrior = _val;
-}
-int PCFLModelSetter::getAssignPrior() {
-	return m_iAssignPrior;
-}
-void PCFLModelSetter::setParityPrior(int _val) {
-	m_iParityPrior = _val;
-}
-int PCFLModelSetter::getParityPrior() {
-	return m_iParityPrior;
+void PCFLModel::criticalOpenConstrs(int cnt) {
+    struct Edge {
+        int i, j;
+        double cost;
+    };
+    const int m = this->data.m, n = this->data.n;
+    std::unique_ptr<struct Edge[]> edges(new struct Edge[m * n]);
+    for (int i = 0, k = 0; i < m; i++) {
+        for (int j = 0; j < n; j++, k++) {
+            edges[k] = {i, j, this->data.assign_cost[k]};
+        }
+    }
+    std::sort(edges.get(), edges.get() + m * n,
+            [](const struct Edge &a, const struct Edge &b) {
+        return a.cost < b.cost;
+    });
+    for (int k = 0; k < cnt; k++) {
+        int i = edges[k].i, j = edges[k].j;
+        this->addConstr(this->genOpenConstr(i, j));
+    }
 }
