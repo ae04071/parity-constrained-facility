@@ -53,6 +53,8 @@ protected:
 	void addConstr_Parity();
 
 	void addConstr_DistAssign(const ProbData&, GRBVar*, GRBVar**);
+	
+	void defer_initGuess();
 };
 
 /* Setter Class */

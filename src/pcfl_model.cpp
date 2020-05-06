@@ -61,8 +61,10 @@ void PCFLModel::run() {
 	optimize();
 	if(PCFLModelSetter::getInstance().getDeferConstr()) {
 		int defer_flag = PCFLModelSetter::getInstance().getDeferConstr();
-		if(getFlag(defer_flag, DEFER_PARITY_CONSTR)) 
+		if(getFlag(defer_flag, DEFER_PARITY_CONSTR)) {
 			addConstr_Parity();
+			defer_initGuess();
+		}
 
 		optimize();
 	}
@@ -95,7 +97,7 @@ GRBVar* PCFLModel::makeOpeningVars(const ProbData &d) {
 	for(int i=0; i<d.nrFacility; i++) {
 		// name of varaible
 		ostringstream vname;
-		vname << "Open" << i;
+		vname << "y" << i;
 		
 		// set Object
 		open[i].set(GRB_DoubleAttr_Obj, d.openCost[i]);
@@ -112,7 +114,7 @@ GRBVar** PCFLModel::makeAssigningVars(const ProbData &d) {
 		for(int i=0; i<d.nrFacility; i++) {
 			// name of variable
 			ostringstream vname;
-			vname << "Assign Client " << j << " to " << i;
+			vname << "x(" << i << ',' << j << ")";
 			
 			// set objective
 			assign[i][j].set(GRB_DoubleAttr_Obj, d.assignCost[i][j]);
@@ -126,7 +128,7 @@ void PCFLModel::addConstr_AssignWithinCap(const ProbData &d, const GRBVar *open,
 	for(int i=0; i<d.nrFacility; i++) {
 		for(int j=0; j<d.nrClient; j++) {
 			ostringstream cname;
-			cname << "Within Cap" << j << " to " << i;
+			cname << "x(" << i << ',' << j << ")<=y" << i;
 			addConstr(assign[i][j] <= open[i], cname.str());
 		}
 	}
@@ -139,7 +141,7 @@ void PCFLModel::addConstr_AssignOnlyOnce(const ProbData &d,	GRBVar **assign) {
 			sum += assign[i][j];
 		}
 		ostringstream cname;
-		cname << "Within One " << j;
+		cname << "sum(x(_," << j << "))=1";
 
 		if(PCFLModelSetter::getInstance().getAssignLazy())
 			addConstr(sum >= 1, cname.str());
@@ -176,7 +178,7 @@ void PCFLModel::addConstr_Parity() {
 	vector<int> &parity_constr = PCFLUtility::getInstance().getInput()->parityConstr;
 	for(int i=0; i<nrFacility; i++) if(parity_constr[i]) {
 		ostringstream cname;
-		cname << "Parity constraint for facility " << i;
+		cname << "sum(x(" << i << ",_))==2*z" << i << "+a";
 		GRBConstr tmp = addConstr(m_parityConstr[i], cname.str());
 
 		if(getFlag(PCFLModelSetter::getInstance().getLazyConstr(), LAZY_PARITY_CONSTR))
@@ -220,6 +222,65 @@ void PCFLModel::addConstr_DistAssign(const ProbData &d, GRBVar *openVar, GRBVar 
 		if(parity[i] != 0) ++SS;
 		addConstr(sum <= DS - (DS - SS)*openVar[i]);
 	}
+}
+
+void PCFLModel::defer_initGuess() {
+	vector<double> fac(nrFacility);
+	vector<vector<double>> ass(nrFacility, vector<double>(nrClient));
+	for(int i=0; i<nrFacility; i++) 
+		fac[i] = m_openVar[i].get(GRB_DoubleAttr_X);
+	for(int i=0; i<nrFacility; i++) for(int j=0; j<nrClient; j++)
+		ass[i][j] = m_assignVar[i][j].get(GRB_DoubleAttr_X);
+
+	ProbData *data = PCFLUtility::getInstance().getInput();
+	vector<int> &par = data->parityConstr;
+	vector<double> &oc = data->openCost;
+	vector<vector<double>> &ac = data->assignCost;
+	vector<int> inv;
+	
+	for(int i=0; i<nrFacility; i++) if(fac[i] > 0.5 && par[i]) {
+		int cnt=0;
+		for(int j=0; j<nrClient; j++) if(ass[i][j] > 0.5) cnt++;
+		if(cnt%2 != par[i]%2) inv.push_back(i);
+	}
+
+	if(!inv.empty()) {
+		const double INF = 1e100;
+		double min_cost = INF;
+		int min_fac = -1;
+		vector<pair<int, int>> rea;
+		for(int i=0; i<nrFacility; i++) if(fac[i] < 0.5 && (!par[i] || inv.size()%2==par[i]%2)) {
+			double cost_sum = 0;
+			vector<pair<int, int>> r;
+			for(auto &f:inv) {
+				double mc = INF;
+				int mj = -1;
+				for(int j=0; j<nrClient; j++) if(ass[f][j] > 0.5 && mc > ac[i][j] - ac[f][j]) {
+					mc = ac[i][j] - ac[f][j];
+					mj = j;
+				}
+				cost_sum += mc;
+				r.push_back({f, mj});
+			}
+			if(min_cost > cost_sum) {
+				min_cost = cost_sum;
+				min_fac = i;
+				rea = r;
+			}
+		}
+
+		if(min_fac!=-1) {
+			cout << "Find Valid Solution" << endl;
+			fac[min_fac] = 1.0;
+			for(auto &v:rea) {
+				ass[v.first][v.second] = 0.0;
+				ass[min_fac][v.second] = 1.0;
+			}
+		}
+	}
+	for(int i=0; i<nrFacility; i++) m_openVar[i].set(GRB_DoubleAttr_Start, fac[i]);
+	for(int i=0; i<nrFacility; i++) for(int j=0; j<nrClient; j++)
+		m_assignVar[i][j].set(GRB_DoubleAttr_Start, ass[i][j]);
 }
 
 /* Setter definition */
