@@ -4,7 +4,6 @@ res/700-700/
 res/backup-runtime-output/
 res/runtime-output/
 res/test/
-scripts/
 lib/
 tmp/
 executable/
