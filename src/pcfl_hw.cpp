@@ -30,6 +30,9 @@ void prefetch(variables_map &vm) {
 	PCFLModelSetter::getInstance().addConstr(DIST_BASE_CONSTR, vm["add-dist-assign"].as<int>());
 	PCFLModelSetter::getInstance().setState(vm["state-unconstr"].as<int>() == 0 ? 0 : STATE_UNCONSTRAINED);
 
+	PCFLModelSetter::getInstance().setDeferConstr(vm["defer-dist-assign"].as<int>() == 0 ? 0 : DEFER_DIST_CONSTR);
+	PCFLModelSetter::getInstance().setDeferConstr(vm["defer-adjust"].as<int>() == 0 ? 0 : DEFER_ADJUST);
+
 	PCFLModelSetter::getInstance().setTraceDir(vm["trace-outdir"].as<string>());
 }
 
@@ -136,13 +139,18 @@ int main(int argc, char *argv[]) {
 
 			// Issue #5
 			("defer-parity-constr", value<int>()->default_value(0), "Presolve origin problem(facility location) first, and then, solve our problem")
+			("defer-adjust", value<int>()->default_value(0), "Adjust assignment for PCFL problem")
 			("lazy-parity-constr", value<int>()->default_value(0), "Make parity constraint lazily.")
 
 			// Issue #6
 			("add-dist-assign", value<int>()->default_value(0), "Make additional constraint: distnace-based constraint")
 
+			// Logger
 			("state-unconstr", value<int>()->default_value(0), "Solve unconstrained PCFL problem")
 			("trace-outdir", value<string>()->default_value(""), "Logs Directory")
+
+			// 
+			("defer-dist-assign", value<int>()->default_value(0), "Defer distnace assign constraint depended no base PCFL problems")
 			/*
 			("input", value<string>()->required(), "Set Input file")
 			("output", value<string>(), "Set output")

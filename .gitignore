@@ -1,0 +1,6 @@
+./res/runtime-output/*
+./res/*
+./scripts/*
+./lib/*
+./tmp/**/*
+./executable/*

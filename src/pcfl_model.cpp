@@ -63,7 +63,8 @@ void PCFLModel::run() {
 		int defer_flag = PCFLModelSetter::getInstance().getDeferConstr();
 		if(getFlag(defer_flag, DEFER_PARITY_CONSTR)) {
 			addConstr_Parity();
-			defer_initGuess();
+			if(getFlag(defer_flag, DEFER_ADJUST)) defer_initGuess();
+			if(getFlag(defer_flag, DEFER_DIST_CONSTR)) defer_distConstr();
 		}
 
 		optimize();
@@ -186,6 +187,19 @@ void PCFLModel::addConstr_Parity() {
 	}
 }
 
+void PCFLModel::makeConstr_DistAssign(int my, vector<int> facs, vector<int> clis) {
+	ProbData *d = PCFLUtility::getInstance().getInput();
+
+	GRBLinExpr sum = 0;
+	int DS = clis.size(), SS = 0;
+	for(auto &j: clis) {
+		for(auto &k: facs) sum += m_assignVar[k][j];
+	}
+	for(auto &k: facs) if(d->parityConstr[k] != 0) ++SS;
+	if(d->parityConstr[my] != 0) ++SS;
+	addConstr(sum <= DS - (DS - SS) * m_parityVar[my]);
+}
+
 void PCFLModel::addConstr_DistAssign(const ProbData &d, GRBVar *openVar, GRBVar **assignVar) {
 	int ratio = d.nrFacility / PCFLModelSetter::getInstance().m_iDistAssignRatio;
 	const vector<vector<double>> &dist = d.assignCost;
@@ -212,7 +226,12 @@ void PCFLModel::addConstr_DistAssign(const ProbData &d, GRBVar *openVar, GRBVar 
 			}
 			if(flag) shorter_clients.push_back(j);
 		}
+		vector<int> fs;
+		for(auto &k: facs) fs.push_back(k.second);
+		
+		makeConstr_DistAssign(i, fs, shorter_clients);
 
+		/*
 		GRBLinExpr sum = 0;
 		int DS = shorter_clients.size(), SS = 0;
 		for(auto &client: shorter_clients) {
@@ -221,10 +240,13 @@ void PCFLModel::addConstr_DistAssign(const ProbData &d, GRBVar *openVar, GRBVar 
 		for(auto &k: facs) if(parity[k.second] != 0) ++SS;
 		if(parity[i] != 0) ++SS;
 		addConstr(sum <= DS - (DS - SS)*openVar[i]);
+		*/
 	}
 }
 
 void PCFLModel::defer_initGuess() {
+	cout << "ENTER" << endl;
+
 	vector<double> fac(nrFacility);
 	vector<vector<double>> ass(nrFacility, vector<double>(nrClient));
 	for(int i=0; i<nrFacility; i++) 
@@ -281,6 +303,21 @@ void PCFLModel::defer_initGuess() {
 	for(int i=0; i<nrFacility; i++) m_openVar[i].set(GRB_DoubleAttr_Start, fac[i]);
 	for(int i=0; i<nrFacility; i++) for(int j=0; j<nrClient; j++)
 		m_assignVar[i][j].set(GRB_DoubleAttr_Start, ass[i][j]);
+}
+
+void PCFLModel::defer_distConstr() {
+	vector<int> stand;
+	for(int i=0; i<nrFacility; i++) if(m_openVar[i].get(GRB_DoubleAttr_X))
+		stand.push_back(i);
+
+	vector<int> gnum = PCFLUtility::getInstance().groupFacilities(stand);
+	for(int i=0; i<nrFacility; i++) {
+		vector<int> othres;
+		for(int k=0; k<nrFacility; k++) if(gnum[i] != gnum[k]) othres.push_back(k);
+		
+		vector<int> clients = PCFLUtility::getInstance().getShorterClients(i, othres);
+		makeConstr_DistAssign(i, othres, clients);
+	}
 }
 
 /* Setter definition */

@@ -5,6 +5,7 @@
 #include "ProbData.h"
 #include "pcfl_callback.h"
 #include "pcfl_flag_manager.h"
+#include "pcfl_utility.h"
 
 #include <string>
 #include <vector>
@@ -52,9 +53,11 @@ protected:
 	GRBVar* makeConstr_Parity(const ProbData &d, GRBVar *openVar, GRBVar **assignVar);
 	void addConstr_Parity();
 
+	void makeConstr_DistAssign(int, vector<int>, vector<int>);
 	void addConstr_DistAssign(const ProbData&, GRBVar*, GRBVar**);
 	
 	void defer_initGuess();
+	void defer_distConstr();
 };
 
 /* Setter Class */
