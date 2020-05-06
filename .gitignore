@@ -1,6 +1,10 @@
-./res/runtime-output/*
-./res/*
-./scripts/*
-./lib/*
-./tmp/**/*
-./executable/*
+res/300-300/
+res/500-500/
+res/700-700/
+res/backup-runtime-output/
+res/runtime-output/
+res/test/
+scripts/
+lib/
+tmp/
+executable/
