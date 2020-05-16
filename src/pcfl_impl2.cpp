@@ -6,8 +6,8 @@
 #include <list>
 #include <tuple>
 #include <memory>
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstring>
 #include <functional>
 #include <LPRelaxation.h>
 #include <algorithm>

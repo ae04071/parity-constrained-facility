@@ -1,6 +1,6 @@
 #include <pcfl_model.h>
-#include <string.h>
-#include <math.h>
+#include <cstring>
+#include <cmath>
 #include <memory>
 #include <algorithm>
 
@@ -50,8 +50,8 @@ void pcfl_impl1(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution
 
 /* Model Definition */
 PCFLModel::PCFLModel()
-	: m_env(true), data(),
-      GRBModel(false), m_callback(this)
+	    : m_env(true), data(), GRBModel(false), m_callback(this),
+        xvar(nullptr), yvar(nullptr), zvar(nullptr), config()
 {
 }
 

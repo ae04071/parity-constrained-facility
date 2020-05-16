@@ -6,7 +6,7 @@
 #include <mcpm.h>
 #include <vector>
 #include <list>
-#include <math.h>
+#include <cmath>
 
 struct edge {
     int u, v;
@@ -133,7 +133,7 @@ double pcfl_find_assignment1(const struct PCFLProbData *data, const bool *open, 
             }
         }
     }
-    auto sol = mcpm(n + V.size(), E);
+    auto sol = mcpm(n + (int)V.size(), E);
     for (int k : sol.first) {
         auto e = E[k];
         for (int j : e.j) {

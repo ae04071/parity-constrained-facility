@@ -116,7 +116,7 @@ void Model::init_vars() {
     }
 
     for (int i = 0; i < m; i++) {
-        auto xvars_i = this->xvars + i * n;
+//        auto xvars_i = this->xvars + i * n;
         for (int j = 0; j < n; j++) {
             int index = i * this->data.n + j;
             auto &v = this->xvars[index];
@@ -170,7 +170,7 @@ double Model::solve(bool *open, int *assign) {
     this->sol_open = open;
     this->sol_assign = assign;
 
-    int m = this->data.m, n = this->data.n;
+//    int m = this->data.m, n = this->data.n;
 
     this->find_assignment_time = {};
 

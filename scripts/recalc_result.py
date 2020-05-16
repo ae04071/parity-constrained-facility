@@ -5,7 +5,7 @@ import sys
 import math
 from functools import reduce
 
-inf_replacement = 120.0
+inf_replacement = math.inf
 
 def recalc_all():
     IGNORE_START = ("  ", "INCORRECT:", "IO_ERROR:", "Avg time: ", "Med time: ", "Max time: ")
@@ -57,6 +57,14 @@ def replace_inf(x):
     return x
 
 def main(exe, *args):
+    for a in args:
+        if a == "--replace-inf" or a.startswith("--replace-inf="):
+            global inf_replacement
+            if '=' in a:
+                splt = a.split('=')
+                if len(splt) != 2:
+                    raise RuntimeError
+                inf_replacement = float(splt[1])
     recalc_all()
 
 if __name__ == "__main__":

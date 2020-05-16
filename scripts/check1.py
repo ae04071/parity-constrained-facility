@@ -33,8 +33,8 @@ def check_dirs(dirs):
             if cur_obj != obj:
                 print(os.path.join(j, i), cur_obj, "!=", obj)
 
-def main(exe, *args):
-    check_category("res", "300-300", args or NAMES)
+def main(exe, root, category, *args):
+    check_category(root, category, args or NAMES)
 
 if __name__ == "__main__":
     main(*sys.argv)

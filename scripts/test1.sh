@@ -22,7 +22,7 @@ for in_dir in $in_root/*; do
     --sol-dir "$in_dir/output" \
     --output-dir "$out_root/$name/$output_name" \
     --abs-tol 1e-6 --rel-tol 1e-10 \
-    --timeout 120 \
+    --timeout 1200 \
      || exit $?
 
 done

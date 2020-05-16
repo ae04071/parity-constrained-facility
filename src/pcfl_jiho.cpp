@@ -3,13 +3,13 @@
 //
 
 #include <gurobi_c++.h>
-#include <stdio.h>
-#include <string.h>
-#include <thread>
+#include <cstdio>
+#include <cstring>
+//#include <thread>
 #include <memory>
 #include <pcfl.h>
-#include <pcfl_model.h>
-#include <assert.h>
+#include <cassert>
+#include <cerrno>
 
 int main(int argc, char *argv[]) {
     bool cli_build_only = false;
@@ -51,7 +51,16 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Not enough parameters for option --threads\n");
                 return 1;
             }
-            config.threads = atoi(argv[i]);
+            long value;
+            {
+                char *end = nullptr;
+                errno = 0;
+                value = strtol(argv[i], &end, 0);
+                if (errno != 0 || end == argv[i] || end == nullptr || *end != '\0') {
+                    fprintf(stderr, "Conversion error for option --threads\n");
+                }
+            }
+            config.threads = (int)value;
         }
         else if (strcmp(a, "--time-limit") == 0) {
             i += 1;
@@ -59,7 +68,16 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Not enough parameters for option --time-limit\n");
                 return 1;
             }
-            config.time_limit = atof(argv[i]);
+            double value;
+            {
+                char *end = nullptr;
+                errno = 0;
+                value = strtod(argv[i], &end);
+                if (errno != 0 || end == argv[i] || end == nullptr || *end != '\0') {
+                    fprintf(stderr, "Conversion error for option --time-limit\n");
+                }
+            }
+            config.time_limit = value;
         }
         else {
             fprintf(stderr, "Unknown option: %s\n", a);
@@ -74,7 +92,7 @@ int main(int argc, char *argv[]) {
 
     struct PCFLProbData data = {};
     // input
-    scanf("%d%d", &data.n, &data.m);
+    std::cin >> data.n >> data.m;
     data.parity = new int[data.m];
     data.opening_cost = new double[data.m];
     data.assign_cost = new double[data.m * data.n];
@@ -83,14 +101,14 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<double[]> _3(data.assign_cost);
 
     for (int i = 0; i < data.m; i++) {
-        scanf("%d", &data.parity[i]);
+        std::cin >> data.parity[i];
     }
     for (int i = 0; i < data.m; i++) {
-        scanf("%lf", &data.opening_cost[i]);
+        std::cin >> data.opening_cost[i];
     }
     for (int i = 0; i < data.m; i++) {
         for (int j = 0; j < data.n; j++) {
-            scanf("%lf", &data.assign_cost[i * data.n + j]);
+            std::cin >> data.assign_cost[i * data.n + j];
         }
     }
 
@@ -114,6 +132,9 @@ int main(int argc, char *argv[]) {
         assert(false);
     }
     if (config.validate_feasibility) {
+        std::ostream &out = std::cerr;
+        out << std::fixed;
+        out.precision(6);
         const double ABSTOL = 1e-6;
         double cost_val = 0;
         for (int i = 0; i < data.m; i++) {
@@ -126,12 +147,12 @@ int main(int argc, char *argv[]) {
             cost_val += data.assign_cost[i * data.n + j];
         }
         if (sol.obj < cost_val - ABSTOL || sol.obj > cost_val + ABSTOL) {
-            printf("obj invalid(%lf, but %lf)\n", sol.obj, cost_val);
+            out << "obj invalid(output: " << sol.obj << ", calculated to: " << cost_val << ")" << std::endl;
         }
         for (int j = 0; j < data.n; j++) {
             int i = sol.assign[j];
             if (!sol.open[i])
-                printf("not open(%d to %d)\n", j, i);
+                out << "not open(" << j << " to " << i << ")" << std::endl;
         }
         for (int i = 0; i < data.m; i++) {
             if (sol.open[i]) {
@@ -142,34 +163,42 @@ int main(int argc, char *argv[]) {
                         p++;
                 }
                 if (p % 2 != 0) {
-                    printf("parity violated(%d is %s but %d assigned)\n",
-                            i, data.parity[i] == 1 ? "odd" : "even", p - data.parity[i]);
+                    out << "parity violated(" << i << " is " << (data.parity[i] == 1 ? "odd" : "even")
+                            << " but " << (p - data.parity[i]) << " assigned)" << std::endl;
                 }
             }
         }
     }
     if (config.verbose) {
-        printf("Open:");
+        std::ostream &out = std::cout;
+        out << std::fixed;
+        out.precision(6);
+        out << "Open:";
         for (int i = 0; i < data.m; i++) {
             if (sol.open[i]) {
-                printf(" %d", i);
+                out << " " << i;
             }
         }
-        printf("\n");
+        out << std::endl;
         for (int i = 0; i < data.m; i++) {
             if (sol.open[i]) {
-                printf("Transport[%d]:", i);
+                out << "Transport[" << i << "]:";
                 for (int j = 0; j < data.n; j++) {
                     if (sol.assign[j] == i) {
-                        printf(" %d", j);
+                        out << " " << i;
                     }
                 }
-                printf("\n");
+                out << std::endl;
             }
         }
     }
-    printf("%lf\n", sol.obj);
-    printf("%lf\n", sol.runtime);
-    printf("%d\n", sol.status);
+    {
+        std::ostream &out = std::cerr;
+        out << std::fixed;
+        out.precision(6);
+        out << sol.obj << std::endl;
+        out << sol.runtime << std::endl;
+        out << sol.status << std::endl;
+    }
     return 0;
 }
