@@ -15,26 +15,25 @@ include_directories(${GUROBI_HOME}/include)
 
 set(OUTPUT PCFL)
 
-# Add source list
-set(SOURCE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/pcfl_jiho.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/pcfl_model.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/pcfl_callback.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/dbg.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/pcfl_assign.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/pcfl_impl2.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/pcfl_impl3.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/LPRelaxation.cpp
-        )
-
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_subdirectory(src/mcpm)
+add_subdirectory(src/blossom5-v2.05.src)
 
 # Executable and link libraries
-add_executable(${OUTPUT} ${SOURCE})
+add_executable(${OUTPUT}
+        src/pcfl_jiho.cpp
+        src/pcfl_model.cpp
+        src/pcfl_callback.cpp
+        src/dbg.cpp
+        src/pcfl_assign.cpp
+        src/pcfl_assign2.cpp
+        src/pcfl_impl2.cpp
+        src/pcfl_impl3.cpp
+        src/LPRelaxation.cpp)
 target_link_libraries(${OUTPUT} gurobi_g++5.2 gurobi90)
 target_link_libraries(${OUTPUT} boost_system boost_program_options)
 target_link_libraries(${OUTPUT} mcpm)
+target_link_libraries(${OUTPUT} blossom5)
 target_link_libraries(${OUTPUT} glpk)

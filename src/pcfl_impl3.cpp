@@ -6,10 +6,11 @@
 #include <list>
 #include <tuple>
 #include <memory>
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstring>
 #include <LPRelaxation.h>
-#include <assert.h>
+#include <cassert>
+#include <dbg.h>
 
 class Model {
 public:
@@ -17,6 +18,8 @@ public:
     Model() = delete;
     ~Model();
     double solve(bool *open, int *assign);
+
+    double find_assignment_time;
 
 private:
     GRBEnv env;
@@ -28,7 +31,7 @@ private:
     public:
         explicit Callback(Model *p_owner);
         Callback() = delete;
-        ~Callback();
+        ~Callback() override;
     protected:
         void callback() override;
     private:
@@ -60,6 +63,9 @@ void pcfl_impl3(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution
     sol->runtime = model.model.get(GRB_DoubleAttr_Runtime);
 //    sol->status = model.model.get(GRB_IntAttr_Status);
     sol->status = GRB_OPTIMAL;
+
+    if (config->verbose)
+        std::cout << "find_assignment took: " << model.find_assignment_time << std::endl;
 }
 
 template<typename T>
@@ -71,7 +77,7 @@ static T *copy_array(T src[], size_t size) {
 Model::Model(const PCFLProbData *in_data)
         : data(*in_data), env(), model(this->env),
           xvars(nullptr), yvars(nullptr), callback(this),
-          sol_obj(0), sol_open(nullptr), sol_assign(nullptr) {
+          sol_obj(0), sol_open(nullptr), sol_assign(nullptr), find_assignment_time() {
     /*
      * initialization is in order of declaration
      * ref: https://en.cppreference.com/w/cpp/language/initializer_list
@@ -166,6 +172,8 @@ double Model::solve(bool *open, int *assign) {
 
     int m = this->data.m, n = this->data.n;
 
+    this->find_assignment_time = {};
+
     this->model.optimize();
 
     return this->sol_obj;
@@ -206,10 +214,12 @@ void Model::Callback::mipsol() {
     if (this->getDoubleInfo(GRB_CB_MIPSOL_OBJ) < this->owner->sol_obj) {
         std::unique_ptr<double[]> y_val(this->getSolution(this->owner->yvars, m));
         for (int i = 0; i < m; i++) {
-            assert(y_val[i] == 0 || y_val[i] == 1);
+            assert(fmin(fabs(y_val[i]), fabs(y_val[i] - 1)) < 1e-10);
             this->tmp_open[i] = y_val[i] >= 0.5;
         }
+        time_measure tm1;
         double obj = pcfl_find_assignment(&this->owner->data, this->tmp_open, this->tmp_assign, this->owner->sol_obj);
+        this->owner->find_assignment_time += tm1.get();
         if (obj < this->owner->sol_obj) {
             this->owner->sol_obj = obj;
             memcpy(this->owner->sol_open, this->tmp_open, m * sizeof(*this->owner->sol_open));

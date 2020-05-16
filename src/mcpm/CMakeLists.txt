@@ -1,6 +1,4 @@
-set(SOURCE
+add_library(mcpm
         BinaryHeap.cpp
         Graph.cpp
         Matching.cpp)
-
-add_library(mcpm ${SOURCE})

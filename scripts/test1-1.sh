@@ -1,22 +1,15 @@
 #!/bin/bash
 
-exe=cmake-build-debug/PCFL
+exe=cmake-build-release/PCFL
 category=300-300
+command=("$exe" --verbose --validate)
 
 (
   echo "default" > /dev/tty
   echo "==== default ===="
-  scripts/test1.sh "$category" output "$exe" --verbose || exit $?
+  scripts/test1.sh "$category" output "${command[@]}" --impl1 || exit $?
 
-  echo "lazy-parity" > /dev/tty
-  echo "==== lazy-parity ===="
-  scripts/test1.sh "$category" output-lp "$exe" --verbose --lazy-parity || exit $?
-
-  echo "lazy-open" > /dev/tty
-  echo "==== lazy-open ===="
-  scripts/test1.sh "$category" output-lo "$exe" --verbose --lazy-open || exit $?
-
-  echo "lazy-parity-open" > /dev/tty
-  echo "==== lazy-parity-open ===="
-  scripts/test1.sh "$category" output-lp-lo "$exe" --verbose --lazy-parity --lazy-open || exit $?
+  echo "impl3" > /dev/tty
+  echo "==== impl3 ===="
+  scripts/test1.sh "$category" output-impl3 "${command[@]}" --impl3 || exit $?
 ) > res/result1.txt

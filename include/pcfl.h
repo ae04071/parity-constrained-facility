@@ -26,7 +26,9 @@ struct PCFLConfig {
     bool validate_feasibility;
 };
 
-double pcfl_find_assignment(const struct PCFLProbData *data, const bool *open, int *to_facility, double cutoff);
+double pcfl_find_assignment1(const struct PCFLProbData *data, const bool *open, int *to_facility, double cutoff);
+double pcfl_find_assignment2(const struct PCFLProbData *data, const bool *open, int *to_facility, double cutoff);
+#define pcfl_find_assignment pcfl_find_assignment2
 
 void pcfl_impl1(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 void pcfl_impl2(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);

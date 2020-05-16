@@ -11,10 +11,12 @@
 
 class time_measure {
 public:
-    explicit time_measure(std::ostream &target,
-            std::string left, std::string right, bool on_destroy=true);
+    time_measure(std::string left, std::string right,
+            std::ostream &target=std::cout, bool on_destroy=true);
+    time_measure();
     ~time_measure();
     void print();
+    double get() const;
 private:
     std::chrono::system_clock::time_point start;
     std::ostream &out;

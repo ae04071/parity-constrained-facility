@@ -19,9 +19,10 @@ for in_dir in $in_root/*; do
   echo "$name" > /dev/tty
   scripts/test.py --command "${command[@]}" \; \
     --input-dir "$in_dir/input" \
+    --sol-dir "$in_dir/output" \
     --output-dir "$out_root/$name/$output_name" \
     --abs-tol 1e-6 --rel-tol 1e-10 \
+    --timeout 120 \
      || exit $?
-#    --sol-dir "$in_dir/output" \
 
 done

@@ -37,6 +37,8 @@ int main(int argc, char *argv[]) {
             config.lazy_parity = true;
         else if (strcmp(a, "--lazy-open") == 0)
             config.lazy_open = true;
+        else if (strcmp(a, "--impl1") == 0)
+            config.which_impl = 1;
         else if (strcmp(a, "--impl2") == 0)
             config.which_impl = 2;
         else if (strcmp(a, "--impl3") == 0)
