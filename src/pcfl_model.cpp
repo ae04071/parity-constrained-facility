@@ -72,34 +72,40 @@ void PCFLModel::constructModel(const ProbData *d) {
 }
 
 void PCFLModel::init_vars() {
+    int m = this->data.m, n = this->data.n;
     char buf[64];
-    this->yvar = this->addVars(this->data.m, GRB_BINARY);
-    this->zvar = this->addVars(this->data.m, GRB_INTEGER);
-    for (int i = 0; i < this->data.m; i++) {
+
+    this->xvar = this->addVars(m * n, GRB_BINARY);
+    this->yvar = this->addVars(m, GRB_BINARY);
+    this->zvar = this->addVars(m, GRB_INTEGER);
+
+    for (int i = 0; i < m; i++) {
         {
             auto &v = this->yvar[i];
             sprintf(buf, "y%d", i);
             v.set(GRB_DoubleAttr_Obj, this->data.opening_cost[i]);
             v.set(GRB_StringAttr_VarName, buf);
+            v.set(GRB_IntAttr_BranchPriority, 0);
         }
         {
             auto &v = this->zvar[i];
             sprintf(buf, "z%d", i);
             v.set(GRB_DoubleAttr_LB, 0);
-            v.set(GRB_DoubleAttr_UB, (int)((this->data.n - (2 - this->data.parity[i])) / 2));
+            v.set(GRB_DoubleAttr_UB, (int)((n - (2 - this->data.parity[i])) / 2));
             v.set(GRB_DoubleAttr_Obj, 0);
             v.set(GRB_StringAttr_VarName, buf);
+            v.set(GRB_IntAttr_BranchPriority, 2000);
         }
     }
 
-    this->xvar = this->addVars(this->data.m * this->data.n, GRB_BINARY);
-    for (int i = 0; i < this->data.m; i++) {
-        for (int j = 0; j < this->data.n; j++) {
-            int index = i * this->data.n + j;
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+            int index = i * n + j;
             auto &v = this->xvar[index];
             sprintf(buf, "x%d.%d", i, j);
             v.set(GRB_DoubleAttr_Obj, this->data.assign_cost[index]);
             v.set(GRB_StringAttr_VarName, buf);
+            v.set(GRB_IntAttr_BranchPriority, 1000);
         }
     }
 }
@@ -170,13 +176,6 @@ void PCFLModel::setVariableProperties() {
 
     this->setCallback(&this->m_callback);
 
-    for (int i = 0; i < this->data.m * this->data.n; i++) {
-        this->xvar[i].set(GRB_IntAttr_BranchPriority, config.xprior);
-    }
-    for (int i = 0; i < this->data.m; i++) {
-        this->yvar[i].set(GRB_IntAttr_BranchPriority, config.yprior);
-        this->zvar[i].set(GRB_IntAttr_BranchPriority, config.zprior);
-    }
     this->set(GRB_IntParam_Threads, config.threads);
     if (config.time_limit >= 0)
         this->set(GRB_DoubleParam_TimeLimit, config.time_limit);

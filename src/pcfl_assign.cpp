@@ -7,6 +7,7 @@
 #include <vector>
 #include <list>
 #include <cmath>
+#include <iostream>
 
 struct edge {
     int u, v;
@@ -35,6 +36,14 @@ double pcfl_find_assignment1(const struct PCFLProbData *data, const bool *open, 
         if (open[i]) {
             vopen.push_back(i);
         }
+    }
+
+    if (vopen.size() >= 10) {
+        auto &out = std::cout;
+        out << "vopen(size: " << vopen.size() << "):";
+        for (auto i : vopen)
+            out << " " << i;
+        out << std::endl;
     }
 
     // feasibility check
@@ -145,3 +154,8 @@ double pcfl_find_assignment1(const struct PCFLProbData *data, const bool *open, 
     // calculate the total cost
     return total_open_cost + sol.second;
 }
+
+/*
+ * |V| = |S| + |D|
+ * |E| = |D|(|D| - 1)/2 + |D||S n O|
+ */

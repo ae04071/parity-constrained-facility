@@ -80,7 +80,10 @@ def print_plain(data, csv=False):
 def split_line(line):
     splt = line.split(": ")
     name = ": ".join(splt[:-1])
-    time = float(splt[-1].split()[0])
+    try:
+        time = float(splt[-1].split()[0])
+    except ValueError:
+        time = math.nan
     return name, time
 
 def map_all(f, data):

@@ -6,9 +6,10 @@
 #include <vector>
 #include <list>
 #include <cmath>
-#include <memory>
+//#include <memory>
 #include <algorithm>
 #include <functional>
+#include <iostream>
 
 struct edge {
     int u, v;
@@ -155,7 +156,7 @@ template<typename T, size_t size>
 class list_of_array {
 private:
     struct node {
-        T buf[size];
+        T buf[size]; //it is used
     };
     std::list<struct node> list;
     ptrdiff_t i;
@@ -399,6 +400,14 @@ double pcfl_find_assignment2(const struct PCFLProbData *data, const bool *open, 
         }
     }
 
+    if (vopen.size() >= 10) {
+        auto &out = std::cout;
+        out << "too large vopen(size: " << vopen.size() << "):";
+        for (auto i : vopen)
+            out << " " << i;
+        out << std::endl;
+    }
+
     // feasibility check
     {
         if (vopen.empty())
@@ -470,3 +479,104 @@ double pcfl_find_assignment2(const struct PCFLProbData *data, const bool *open, 
         return ret;
     }
 }
+
+double pcfl_find_assignment3(const struct PCFLProbData *data, const bool *open, int *assign, double cutoff) {
+    const int m = data->m, n = data->n;
+
+    std::vector<int> vopen;
+
+    for (int i = 0; i < m; i++) {
+        if (open[i]) {
+            vopen.push_back(i);
+        }
+    }
+
+    if (vopen.size() >= 10) {
+        auto &out = std::cout;
+        out << "too large vopen(size: " << vopen.size() << "):";
+        for (auto i : vopen)
+            out << " " << i;
+        out << std::endl;
+    }
+
+    // feasibility check
+    {
+        if (vopen.empty())
+            return INFINITY;
+        static const int DFA_TABLE[4][3] = {
+                {0, 0, 0},
+                {0, 2, 1},
+                {0, 1, 2},
+                {0, 1, 2},
+        };
+        int total_parity = 3;
+        for (int i : vopen) {
+            total_parity = DFA_TABLE[total_parity][data->parity[i]];
+        }
+        if (total_parity == 3) return INFINITY;
+        if (total_parity != 0 && (total_parity + n) % 2 != 0) return INFINITY;
+    }
+
+    double total_open_cost = 0;
+    for (int i : vopen) {
+        total_open_cost += data->opening_cost[i];
+    }
+
+    // minimum cost unconstrained assignment
+    {
+        auto *assign_cost = new double[n];
+        for (int j = 0; j < n; j++) {
+            assign[j] = -1;
+            assign_cost[j] = INFINITY;
+        }
+        for (int i : vopen) {
+            const double *assignment_cost = data->assign_cost + i * n;
+            for (int j = 0; j < n; j++) {
+                if (assignment_cost[j] < assign_cost[j]) {
+                    assign[j] = i;
+                    assign_cost[j] = assignment_cost[j];
+                }
+            }
+        }
+        {
+            double ret = total_open_cost;
+            for (int j = 0; j < n; j++) {
+                ret += assign_cost[j];
+            }
+            if (ret > cutoff)
+                return INFINITY;
+        }
+        delete[] assign_cost;
+    }
+
+//    if (vopen.size() > 4)
+//        return INFINITY;
+
+    auto sol = solve_reassign(data, vopen, assign);
+
+    for (auto r : sol) {
+        assign[r.j] = r.i;
+    }
+
+    // calculate the total cost
+    {
+        double ret = 0;
+        for (int i = 0; i < data->m; i++) {
+            if (open[i]) ret += data->opening_cost[i];
+        }
+        for (int j = 0; j < n; j++) {
+            ret += data->assign_cost[assign[j] * n + j];
+        }
+        return ret;
+    }
+}
+
+/*
+ * |V| >= |S|(|S| - 1)
+ * |V| <= min{|S|^2 + 1 + |D|, |S|max_size(|S|)}
+ * |E| >= |S| choose 2 + |S|((|S| - 1) choose 2)
+ * |E| <= (|S| choose 2)(|S| - 1) + |S|(max_size(|S|) choose 2)
+ * max_size(s) = (s - 1)^2 # not very tight
+ *
+ * TODO: find better method by predicting |V| and |E|
+ */

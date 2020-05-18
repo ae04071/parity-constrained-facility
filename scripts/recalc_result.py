@@ -8,7 +8,7 @@ from functools import reduce
 inf_replacement = math.inf
 
 def recalc_all():
-    IGNORE_START = ("  ", "INCORRECT:", "IO_ERROR:", "Avg time: ", "Med time: ", "Max time: ")
+    IGNORE_START = ("  ", "INCORRECT:", "IO_ERROR:", "EXCEPTION:", "Avg time: ", "Med time: ", "Max time: ")
     lst = []
     while True:
         try:

@@ -22,7 +22,7 @@ static double naive(const PCFLProbData *data, int i, bool *open, int *assign, do
                 int open_lb, int open_ub)> &bound_func,
         int open_lb, int open_ub, int num_open) {
     if (i == data->m) {
-        double ret = pcfl_find_assignment(data, open, assign, cutoff);
+        double ret = pcfl_find_assignment2(data, open, assign, cutoff);//TODO: config
         if (ret < cutoff) {
             printf("Open:");
             for (int ii = 0; ii < data->m; ii++) {
