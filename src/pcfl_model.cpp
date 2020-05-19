@@ -44,13 +44,13 @@ void PCFLModel::constructModel(const ProbData &d) {
 
 	// set some extra condition for IP
 	PCFLModelSetter::getInstance().setModelProp(*this);
+	if(m_timeLimit >= 0) set(GRB_DoubleParam_TimeLimit, m_timeLimit);
 	set(GRB_DoubleParam_MIPGap, 0);
 }
 
 void PCFLModel::setVariableProperties() {
 	set(GRB_IntParam_Threads, std::thread::hardware_concurrency());
 	set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
-	if(m_timeLimit >= 0) set(GRB_DoubleParam_TimeLimit, m_timeLimit);
 	set(GRB_DoubleParam_MIPGap, 0);
 
 	GRBCallback *cb = new PCFLCallback(nrFacility, nrClient, m_openVar, m_assignVar, m_parityVar);

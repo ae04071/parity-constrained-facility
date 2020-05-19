@@ -51,11 +51,13 @@ OutData solve(const ProbData &d, string root_dir, double tlimit=GRB_INFINITY) {
 
 		cout << fixed;
 		cout.precision(6);
-		cout << model.get(GRB_DoubleAttr_ObjVal) << endl;
 
 		int model_status = model.get(GRB_IntAttr_Status);
 		double cost = model.get(GRB_DoubleAttr_ObjVal);
 		double runtime = model.get(GRB_DoubleAttr_Runtime);
+		cout << cost << endl;
+		cout << runtime << endl;
+		cout << model_status << endl;
 
 		/*
 		vector<pair<int, set<int>>> arr;
@@ -97,9 +99,6 @@ OutData solve(const ProbData &d, string root_dir, double tlimit=GRB_INFINITY) {
 		/*
 		cout << fixed;
 		cout.precision(6);
-		cout << "\nCost: " << cost << endl;
-		cout << "Runtime: " << runtime << endl;
-		cout << "Status: " << model_status << endl;
 		*/
 
 		//return {cost, runtime, model_status};
@@ -149,13 +148,13 @@ int main(int argc, char *argv[]) {
 			("state-unconstr", value<int>()->default_value(0), "Solve unconstrained PCFL problem")
 			("trace-outdir", value<string>()->default_value(""), "Logs Directory")
 
-			// 
+			// Issue #6-3
 			("defer-dist-assign", value<int>()->default_value(0), "Defer distnace assign constraint depended no base PCFL problems")
 			/*
 			("input", value<string>()->required(), "Set Input file")
 			("output", value<string>(), "Set output")
-			("TimeLimit", value<double>()->default_value(-1.0), "Time Limit(-1 is default, INF)")
 			*/
+			("TimeLimit", value<double>()->default_value(-1.0), "Time Limit(-1 is default, INF)")
 		;	
 
 		variables_map vm;
@@ -166,9 +165,12 @@ int main(int argc, char *argv[]) {
 		}
 		notify(vm);
 
+		double time_limit = GRB_INFINITY;
+		if(vm["TimeLimit"].as<double>() > -0.5) time_limit = vm["TimeLimit"].as<double>();
+
 		PCFLUtility::getInstance().setInput("");
 		prefetch(vm);
-		OutData ans = solve(*(PCFLUtility::getInstance().getInput()), vm["trace-outdir"].as<string>());
+		OutData ans = solve(*(PCFLUtility::getInstance().getInput()), vm["trace-outdir"].as<string>(), time_limit);
 		/*
 		if(vm.count("output")) {
 			string outName = vm["output"].as<string>();

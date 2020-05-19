@@ -89,7 +89,7 @@ void PCFLCallback::setLazyConstr(int f) {
 
 void PCFLCallback::activateTrace(string str) {
 	solFile.open(str + "_cbsol.log");
-	nodeFile.open(str + "_cbnode.log");
+	//nodeFile.open(str + "_cbnode.log");
 }
 
 void PCFLCallback::callback() {
@@ -104,6 +104,7 @@ void PCFLCallback::callback() {
 			// Ignore polling callback
 		} else if (where == GRB_CB_PRESOLVE) {
 			// Presolve callback
+			std::cout << "PRESOLVE" << std::endl;
 		} else if (where == GRB_CB_SIMPLEX) {
 			// Simplex callback
 		}else if (where == GRB_CB_MIP) {
@@ -164,17 +165,35 @@ void PCFLCallback::callback() {
 			int solcnt = getIntInfo(GRB_CB_MIPSOL_SOLCNT);
 			int nodecnt = (int) getDoubleInfo(GRB_CB_MIPSOL_NODCNT);
 			double obj = getDoubleInfo(GRB_CB_MIPSOL_OBJ);
+			double bst = getDoubleInfo(GRB_CB_MIPSOL_OBJBST);
+			double bnd = getDoubleInfo(GRB_CB_MIPSOL_OBJBND);
 			cout << "SOLCNT: " << solcnt << endl;
 			if(solFile.is_open() && solcnt - prev_solcnt != 0) {
 				prev_solcnt = solcnt;
 				double *x = getSolution(openVar, nrFacility);
+				solFile << "(sol, node, cur obj)" << endl;
 				solFile << "(" << solcnt << ' ' << nodecnt << ' ' << obj << ")" << endl;
+				solFile << "(best, bound)" << endl;
+				solFile << "(" << bst << ' ' << bnd << ")" << endl;
 
+				vector<int> cnt(nrFacility);
 				for(int i=0; i<nrFacility; i++) if(x[i] > 0.99) {
 					solFile << i << ' ' ;
 				}
-				solFile << endl << endl;
+				std::cout << std::endl;
 
+				double **as = new double*[nrFacility];
+				for(int i=0; i<nrFacility; ++i) as[i] = getSolution(assignVar[i], nrClient);
+				for(int i=0; i<nrFacility; ++i) for(int j=0; j<nrClient; ++j) if(as[i][j] > 0.99) {
+					++cnt[i];
+				}
+				for(int i=0; i<nrFacility; ++i) if(cnt[i]) {
+					solFile << i << ' ' << cnt[i] << endl;
+				}
+				solFile << endl;
+
+				for(int i=0; i<nrFacility; ++i) delete []as[i];
+				delete []as;
 				delete []x;
 			}
 
