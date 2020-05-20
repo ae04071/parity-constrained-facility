@@ -3,6 +3,7 @@
 
 const int BTW_FACILITY = 1 << 1;
 const int LAZY_PARITY_CONSTR = 1 << 2;
+const int LAZY_APPROXIMATE_OPEN = 1 << 3;
 
 const int DEFER_PARITY_CONSTR = 1 << 1;
 const int DEFER_DIST_CONSTR = 1 << 2;

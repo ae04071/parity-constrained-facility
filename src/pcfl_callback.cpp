@@ -95,6 +95,8 @@ void PCFLCallback::activateTrace(string str) {
 void PCFLCallback::callback() {
 	static int prev_solcnt = -10;
 	static int prev_nodecnt = -10;
+	static bool start_mip = false;
+	static double min_solution = GRB_INFINITY;
 	/*
 	if(where!=0 && where != 6 && where != 1)
 		cerr << "Current callback state: " << mapping_callback_state(where) << ' ' << where << endl;
@@ -104,13 +106,17 @@ void PCFLCallback::callback() {
 			// Ignore polling callback
 		} else if (where == GRB_CB_PRESOLVE) {
 			// Presolve callback
-			std::cout << "PRESOLVE" << std::endl;
 		} else if (where == GRB_CB_SIMPLEX) {
 			// Simplex callback
 		}else if (where == GRB_CB_MIP) {
 			// General MIP callback
+			if(getFlag(lazyConstr, LAZY_APPROXIMATE_OPEN) && getDoubleInfo(GRB_CB_MIP_OBJBND) > min_solution)
+				abort();
+			start_mip = true;
 		} else if (where == GRB_CB_MIPSOL) {
 			// MIP solution callback
+			min_solution = min(min_solution, getDoubleInfo(GRB_CB_MIPSOL_OBJ));
+			std::cout << "min solution: " << min_solution << endl;
 			if(assignOnceFlag) {
 				// too many data must be loaded.
 				double **x = new double*[nrFacility];
@@ -133,7 +139,8 @@ void PCFLCallback::callback() {
 				delete []x;
 			}
 			
-			if(getFlag(lazyConstr, BTW_FACILITY)) {
+			if(getFlag(lazyConstr, BTW_FACILITY) && start_mip) {
+			//if(getFlag(lazyConstr, BTW_FACILITY)) {
 				vector<int> &parityConstr = PCFLUtility::getInstance().getInput()->parityConstr;
 				vector<int> currOpenFacs;
 				double *x = getSolution(openVar, nrFacility);
@@ -161,6 +168,26 @@ void PCFLCallback::callback() {
 
 				delete []x;
 			}
+
+			if(getFlag(lazyConstr, LAZY_APPROXIMATE_OPEN)) {
+			//if(getFlag(lazyConstr, BTW_FACILITY)) {
+				double *x = getSolution(openVar, nrFacility);
+
+				GRBLinExpr extConstr, assConstr;
+				// tolerance needed
+				for(int i=0; i<nrFacility; i++) if(x[i] > 0.99) {
+					extConstr += openVar[i];
+					for(int j=0; j<nrClient; j++) {
+						assConstr += assignVar[i][j];
+					}
+				} else {
+					extConstr += 1 - openVar[i];
+				}
+				addLazy(extConstr <= nrFacility - 1);
+				addLazy(assConstr <= nrClient - 1);
+
+				delete []x;
+			}
 	
 			int solcnt = getIntInfo(GRB_CB_MIPSOL_SOLCNT);
 			int nodecnt = (int) getDoubleInfo(GRB_CB_MIPSOL_NODCNT);
@@ -180,7 +207,7 @@ void PCFLCallback::callback() {
 				for(int i=0; i<nrFacility; i++) if(x[i] > 0.99) {
 					solFile << i << ' ' ;
 				}
-				std::cout << std::endl;
+				solFile << std::endl;
 
 				double **as = new double*[nrFacility];
 				for(int i=0; i<nrFacility; ++i) as[i] = getSolution(assignVar[i], nrClient);

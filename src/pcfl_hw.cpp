@@ -30,6 +30,8 @@ void prefetch(variables_map &vm) {
 	PCFLModelSetter::getInstance().addConstr(DIST_BASE_CONSTR, vm["add-dist-assign"].as<int>());
 	PCFLModelSetter::getInstance().setState(vm["state-unconstr"].as<int>() == 0 ? 0 : STATE_UNCONSTRAINED);
 
+	PCFLModelSetter::getInstance().setLazyConstr(vm["lazy-approximate-open"].as<int>() == 0 ? 0 : LAZY_APPROXIMATE_OPEN);
+
 	PCFLModelSetter::getInstance().setDeferConstr(vm["defer-dist-assign"].as<int>() == 0 ? 0 : DEFER_DIST_CONSTR);
 	PCFLModelSetter::getInstance().setDeferConstr(vm["defer-adjust"].as<int>() == 0 ? 0 : DEFER_ADJUST);
 
@@ -150,6 +152,8 @@ int main(int argc, char *argv[]) {
 
 			// Issue #6-3
 			("defer-dist-assign", value<int>()->default_value(0), "Defer distnace assign constraint depended no base PCFL problems")
+
+			("lazy-approximate-open", value<int>()->default_value(0), "open set?.")
 			/*
 			("input", value<string>()->required(), "Set Input file")
 			("output", value<string>(), "Set output")
