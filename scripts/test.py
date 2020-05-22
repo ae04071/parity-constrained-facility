@@ -14,16 +14,14 @@ GRB_INCORRECT = ("7", "8", "9", "10", "15")
 
 class PCFLTester:
 
-    command = None
-
-    timeout = None
-    abs_tol = 1e-4
-    rel_tol = 1e-4
-    output_extracted = True
-    gurobi_time = False
-
     def __init__(self, command):
         self.command = command
+
+        self.timeout = None
+        self.abs_tol = 1e-4
+        self.rel_tol = 1e-4
+        self.output_extracted = True
+        self.gurobi_time = False
 
     def test_dir(
             self, in_dir, out_dir = None, err_dir = None,
@@ -35,7 +33,7 @@ class PCFLTester:
                 except OSError:
                     traceback.print_exc()
 
-        file_names = os.listdir(in_dir)
+        file_names = filename_sorted(os.listdir(in_dir))
 
         def p(file_name):
             in_file = os.path.join(in_dir, file_name)
@@ -109,6 +107,7 @@ class PCFLTester:
         try:
             if out_file:
                 with open(out_file, "w") as f:
+                    # print(self.output_extracted)
                     f.write(out_extracted if self.output_extracted
                             else out_str)
         except OSError:
@@ -151,7 +150,7 @@ class PCFLTester:
             else:
                 exception = True
                 print("in_file: " + in_file, file=sys.stderr)
-                print(f"Running time: {out_time}")
+                print(f"Running time: {out_time}", file=sys.stderr)
 
         # compare objective value
         try:
@@ -221,6 +220,37 @@ def extract_output(raw_output):
     else:
         return "", math.nan, math.nan, "(output error)"
 
+def filename_sorted(__iterable):
+    def char_class(c):
+        if c.isdigit():
+            return 2
+        return 1
+    def emit(buf, state):
+        x = "".join(buf)
+        if state == 2:
+            return int(x), x
+        else:
+            return 0 if x < "0" else math.inf, x
+    def restore(x):
+        return x[1]
+    def split(x):
+        def p():
+            buf = []
+            state = 0
+            for c in x:
+                cls = char_class(c)
+                if state == 0:
+                    state = cls
+                elif state == 1 or state != cls:
+                    yield emit(buf, state)
+                    state = cls
+                    buf.clear()
+                buf.append(c)
+            yield emit(buf, state)
+        return tuple(p())
+    return ["".join(map(restore, x)) for x in sorted(map(split, __iterable))]
+
+
 def mean(__iterable):
     sum_value = 0
     len_value = 0
@@ -238,6 +268,12 @@ def median(__iterable):
         return sorted_list[n // 2]
     else:
         return mean(sorted_list[n // 2 - 1 : n // 2 + 1])
+
+def replace_inf(inf_replacement, x):
+    if math.isinf(x):
+        return inf_replacement
+    return x
+
 
 CLI_COMMAND = "CLI_COMMAND"
 CLI_INPUT_DIR = "CLI_INPUT_DIR"
@@ -417,12 +453,14 @@ def main(*argv):
     tester_attr_map = {
         CLI_TIMEOUT: "timeout", CLI_ABSOLUTE_ERROR_TOLERANCE: "abs_tol",
         CLI_RELATIVE_ERROR_TOLERANCE: "rel_tol",
-        CLI_OUTPUT_EXTRACT: "output_extract",
+        CLI_OUTPUT_EXTRACT: "output_extracted",
         CLI_USE_GUROBI_RUNTIME: "gurobi_time",
     }
     for k, v in options.items():
         if k in tester_attr_map:
             setattr(tester, tester_attr_map[k], v)
+
+    # print(dict((k, getattr(tester, k)) for k in tester_attr_map.values()))
 
     test_dir_args_map = {
         CLI_OUTPUT_DIR: "out_dir", CLI_ERROR_DIR: "err_dir",
@@ -473,7 +511,7 @@ def main(*argv):
         print("INCORRECT:") # output not equal to solution or status is not optimal
         for f in incorrect_list:
             print(f"  {f}")
-    print("Avg time:", mean(correct_time_list))
+    print("Avg time:", mean(map(lambda x: replace_inf(options.get(CLI_TIMEOUT, math.inf), x), correct_time_list)))
     print("Med time:", median(correct_time_list))
     print("Max time:", max(correct_time_list + [0]))
     return 0
