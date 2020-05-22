@@ -3,7 +3,7 @@
 //
 #include "assign.h"
 #include <functional>
-#include <iostream>
+//#include <iostream>
 
 static double find_assign(const struct PCFLProbData *data, const bool *open, int *assign, double cutoff,
         const std::function<struct aux_graph(const struct PCFLProbData *data,

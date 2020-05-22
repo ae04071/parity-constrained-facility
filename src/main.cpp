@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
             .lazy_open = false,
             .verbose = false,
             .validate_feasibility = false,
-            .assignment_method = 3,
+            .assignment_method = 1,
             .impl3_use_parity = false,
             .use_open_parity = true,
     };
