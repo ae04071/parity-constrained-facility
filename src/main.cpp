@@ -32,9 +32,9 @@ int main(int argc, char *argv[]) {
             .lazy_open = false,
             .verbose = false,
             .validate_feasibility = false,
-            .assignment_method = 2,
-            .impl3_use_parity = true,
-            .use_open_parity = false,
+            .assignment_method = 3,
+            .impl3_use_parity = false,
+            .use_open_parity = true,
     };
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
@@ -58,6 +58,8 @@ int main(int argc, char *argv[]) {
             config.assignment_method = 1;
         else if (strcmp(a, "--assignment2") == 0)
             config.assignment_method = 2;
+        else if (strcmp(a, "--assignment3") == 0)
+            config.assignment_method = 3;
         else if (strcmp(a, "--impl3-no-parity") == 0)
             config.impl3_use_parity = false;
         else if (strcmp(a, "--impl3-parity") == 0)

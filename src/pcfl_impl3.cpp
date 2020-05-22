@@ -48,6 +48,8 @@ private:
         int *tmp_assign;
 
         void mipsol();
+
+        void cutoff();
     };
 
     Callback callback;
@@ -55,6 +57,8 @@ private:
     double sol_obj;
     bool *sol_open;
     int *sol_assign;
+
+    double obj_best_bound;
 
     void init_vars();
     void init_constrs();
@@ -81,7 +85,7 @@ static T *copy_array(T src[], size_t size) {
 Model::Model(const PCFLProbData *in_data, const PCFLConfig *in_config)
         : data(*in_data), config(*in_config), env(), model(this->env),
           vars(), callback(this),
-          sol_obj(0), sol_open(nullptr), sol_assign(nullptr),
+          sol_obj(0), sol_open(nullptr), sol_assign(nullptr), obj_best_bound(),
           find_assignment_time(), find_assignment() {
     /*
      * initialization is in order of declaration
@@ -92,6 +96,8 @@ Model::Model(const PCFLProbData *in_data, const PCFLConfig *in_config)
     this->data.opening_cost = copy_array(in_data->opening_cost, m);
     this->data.assign_cost = copy_array(in_data->assign_cost, m * n);
 
+    if (in_config->assignment_method < 1 || in_config->assignment_method > 3)
+        throw std::runtime_error("invalid assignment method");
     this->find_assignment = pcfl_find_assignment_methods[in_config->assignment_method];
 
     this->init_vars();
@@ -238,6 +244,7 @@ double Model::solve(bool *open, int *assign) {
     this->sol_obj = INFINITY;
     this->sol_open = open;
     this->sol_assign = assign;
+    this->obj_best_bound = 0;
 
 //    int m = this->data.m, n = this->data.n;
 
@@ -270,23 +277,20 @@ void Model::Callback::callback() {
 //    printf("callback: %d\n", where);
     switch (where) {
     case GRB_CB_MIP:
-        if (this->getDoubleInfo(GRB_CB_MIP_OBJBND) >= this->owner->sol_obj)
-            this->abort();
+        this->owner->obj_best_bound = this->getDoubleInfo(GRB_CB_MIP_OBJBND);
         break;
     case GRB_CB_MIPSOL:
-        if (this->getDoubleInfo(GRB_CB_MIPSOL_OBJBND) >= this->owner->sol_obj)
-            this->abort();
+        this->owner->obj_best_bound = this->getDoubleInfo(GRB_CB_MIPSOL_OBJBND);
+        this->cutoff();
         this->mipsol();
-        if (this->getDoubleInfo(GRB_CB_MIPSOL_OBJBND) >= this->owner->sol_obj)
-            this->abort();
         break;
     case GRB_CB_MIPNODE:
-        if (this->getDoubleInfo(GRB_CB_MIPNODE_OBJBND) >= this->owner->sol_obj)
-            this->abort();
+        this->owner->obj_best_bound = this->getDoubleInfo(GRB_CB_MIPNODE_OBJBND);
         break;
     default:
         break;
     }
+    this->cutoff();
 }
 
 void Model::Callback::mipsol() {
@@ -320,11 +324,17 @@ void Model::Callback::mipsol() {
     }
 }
 
+void Model::Callback::cutoff() {
+    if (this->owner->sol_obj <= this->owner->obj_best_bound)
+        this->abort();
+}
+
 double (*pcfl_find_assignment_methods[])
         (const struct PCFLProbData *data, const bool *open, int *to_facility, double cutoff) = {
         nullptr,
         pcfl_find_assignment1,
         pcfl_find_assignment2,
+        pcfl_find_assignment3,
 };
 
 /*
@@ -354,6 +364,8 @@ double (*pcfl_find_assignment_methods[])
  * suspect that gurobi struggles finding the first solution.
  * check the assignment time or the callback time => (1) !!!!! it was solving vopen = 500 facilities for about 40s
  * check the number of infeasible open facilities => (2)
+ *
+ * (4) multi-thread, return to gurobi and run assignment concurrently
  *
  * TODO: find initial solution by approximation
  * TODO: parity constraints(0 <= n + (sum of odd y) + (even) <= (sum of unconstrained y))
