@@ -350,14 +350,8 @@ double (*pcfl_find_assignment_methods[])
  * an alternative way is to pre-solve using heuristic and set the cutoff.
  * using approximation method will be a good idea.
  *
- * (2)
- * constraints to prevent infeasible open facilities set
- * include unconstrained or proper parity of the odd
- * 0 <= n + (sum of odd y) + (even) <= (sum of unconstrained y)
- *
- * or just add parity constraints
- *
- * or both
+ * concurrent method to solve this issue.
+ * if the best bound of an assignment problem already running is worse than cutoff, abort the thread
  *
  * (3)
  * performance loss for easy problems
@@ -368,5 +362,5 @@ double (*pcfl_find_assignment_methods[])
  * (4) multi-thread, return to gurobi and run assignment concurrently
  *
  * TODO: find initial solution by approximation
- * TODO: parity constraints(0 <= n + (sum of odd y) + (even) <= (sum of unconstrained y))
+ * TODO: concurrent method
  */

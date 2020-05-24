@@ -322,6 +322,4 @@ struct aux_graph assign2_aux_graph(const PCFLProbData *data,
  * |E| >= |S| choose 2 + |S|((|S| - 1) choose 2)
  * |E| <= (|S| choose 2)(|S| - 1) + |S|(max_size(|S|) choose 2)
  * max_size(s) = (s - 1)^2 # not very tight
- *
- * TODO: find better method by predicting |V| and |E|
  */

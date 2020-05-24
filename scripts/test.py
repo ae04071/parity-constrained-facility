@@ -7,10 +7,12 @@ import subprocess
 import traceback
 import threading
 import queue
+import json
 
 GRB_CORRECT = ("2",)
 GRB_IMPOSSIBLE = ("3", "4", "5")
 GRB_INCORRECT = ("7", "8", "9", "10", "15")
+
 
 class PCFLTester:
 
@@ -23,9 +25,49 @@ class PCFLTester:
         self.output_extracted = True
         self.gurobi_time = False
 
+    def test_list(self, tuples, jobs=1):
+        """
+        run test_one for each element of the list
+        :param tuples: iterable of tuple (name, input file, output file, error file, solution file)
+        :param jobs: number of jobs
+        :return: iterator which will run the test
+        """
+
+        list_tuples = list(tuples)
+
+        def p(e):
+            file_name, in_file, out_file, err_file, sol_file = e
+            return (file_name,) + self.test_one(in_file, out_file, err_file, sol_file)
+
+        if jobs == 1:
+            for e in list_tuples:
+                yield p(e)
+        else:
+            remaining_jobs = threading.Semaphore(jobs)
+            result_queue = queue.Queue(jobs)
+            threads = []
+
+            def thread_start(e):
+                remaining_jobs.acquire()
+                res = p(e)
+                remaining_jobs.release()
+                result_queue.put(res)
+
+            for e in list_tuples:
+                th = threading.Thread(target=thread_start, args=(e,))
+                th.daemon = True
+                th.start()
+                threads.append(th)
+
+            for _ in list_tuples:
+                yield result_queue.get()
+
+            for th in threads:
+                th.join()
+
     def test_dir(
-            self, in_dir, out_dir = None, err_dir = None,
-            sol_dir = None, jobs = 1) -> object:
+            self, in_dir, out_dir=None, err_dir=None,
+            sol_dir=None, jobs=1):
         for d in (out_dir, err_dir):
             if d:
                 try:
@@ -40,35 +82,11 @@ class PCFLTester:
             out_file = out_dir and os.path.join(out_dir, file_name)
             err_file = err_dir and os.path.join(err_dir, file_name)
             sol_file = sol_dir and os.path.join(sol_dir, file_name)
-            return (file_name, ) +\
-                   self.test_one(in_file, out_file, err_file, sol_file)
+            return file_name, in_file, out_file, err_file, sol_file
 
-        if jobs == 1:
-            for file_name in file_names:
-                yield p(file_name)
-        else:
-            remaining_jobs = threading.Semaphore(jobs)
-            result_queue = queue.Queue(jobs)
-            threads = []
+        tuples = (p(f) for f in file_names)
 
-            def thread_start(file_name):
-                remaining_jobs.acquire()
-                res = p(file_name)
-                remaining_jobs.release()
-                result_queue.put(res)
-
-            for file_name in file_names:
-                th = threading.Thread(target=thread_start, args=(file_name,))
-                th.daemon = True
-                th.start()
-                threads.append(th)
-
-            for _ in file_names:
-                yield result_queue.get()
-
-            for th in threads:
-                th.join()
-
+        return self.test_list(tuples, jobs)
 
     def test_one(self, in_file, out_file=None, err_file=None, sol_file=None):
         io_error = False
@@ -121,7 +139,7 @@ class PCFLTester:
                 if err_file:
                     with open(err_file, "w") as f:
                         f.write(err_str)
-                else: # if err_file is not specified, print to stderr
+                else:  # if err_file is not specified, print to stderr
                     print("in_file: " + in_file, file=sys.stderr)
                     print(err_str, end="", file=sys.stderr)
             except OSError:
@@ -194,6 +212,7 @@ class PCFLTester:
         out_str = out_data.decode(errors="replace")
         return return_code, err_str, out_str, wall_clock_time
 
+
 def extract_output(raw_output):
     """
     raw_output will look like:
@@ -220,19 +239,23 @@ def extract_output(raw_output):
     else:
         return "", math.nan, math.nan, "(output error)"
 
+
 def filename_sorted(__iterable):
     def char_class(c):
         if c.isdigit():
             return 2
         return 1
+
     def emit(buf, state):
         x = "".join(buf)
         if state == 2:
             return int(x), x
         else:
             return 0 if x < "0" else math.inf, x
+
     def restore(x):
         return x[1]
+
     def split(x):
         def p():
             buf = []
@@ -247,7 +270,9 @@ def filename_sorted(__iterable):
                     buf.clear()
                 buf.append(c)
             yield emit(buf, state)
+
         return tuple(p())
+
     return ["".join(map(restore, x)) for x in sorted(map(split, __iterable))]
 
 
@@ -259,6 +284,7 @@ def mean(__iterable):
         len_value += 1
     return sum_value and sum_value / len_value
 
+
 def median(__iterable):
     sorted_list = sorted(__iterable)
     n = len(sorted_list)
@@ -267,7 +293,8 @@ def median(__iterable):
     elif n % 2 == 1:
         return sorted_list[n // 2]
     else:
-        return mean(sorted_list[n // 2 - 1 : n // 2 + 1])
+        return mean(sorted_list[n // 2 - 1: n // 2 + 1])
+
 
 def replace_inf(inf_replacement, x):
     if math.isinf(x):
@@ -286,20 +313,25 @@ CLI_RELATIVE_ERROR_TOLERANCE = "CLI_RELATIVE_ERROR_TOLERANCE"
 CLI_OUTPUT_EXTRACT = "CLI_OUTPUT_EXTRACT"
 CLI_JOBS = "CLI_PARALLEL"
 CLI_USE_GUROBI_RUNTIME = "CLI_USE_GUROBI_RUNTIME"
-CLI_OPTIONS = (
-    CLI_COMMAND, CLI_INPUT_DIR, CLI_OUTPUT_DIR, CLI_ERROR_DIR, CLI_SOL_DIR,
-    CLI_TIMEOUT, CLI_ABSOLUTE_ERROR_TOLERANCE, CLI_RELATIVE_ERROR_TOLERANCE,
-    CLI_OUTPUT_EXTRACT, CLI_JOBS, CLI_USE_GUROBI_RUNTIME
-)
+CLI_JSON = "CLI_JSON"
+
+JSON_NAME = "name"
+JSON_INPUT = "input"
+JSON_OUTPUT = "output"
+JSON_ERROR = "error"
+JSON_SOLUTION = "solution"
+
 
 def cli_parse(argv):
     def option_handler_list(key, f=lambda x: x):
         value = []
         option_name = None
+
         def init(ret, state, arg):
             nonlocal option_name
             option_name = arg
             return False, handler
+
         def handler(ret, state, arg):
             # TODO: escaping ';' (not able to give ';' as an argument)
             if arg is not None and arg != ";":
@@ -308,16 +340,19 @@ def cli_parse(argv):
             else:
                 ret[key] = tuple(value)
                 return False, None
+
         return init
 
     def option_handler_tuple(key, fs):
         value = []
         i = iter(fs)
         option_name = "(bug...uninitialized)"
+
         def init(ret, state, arg):
             nonlocal option_name
             option_name = arg
             return False, handler
+
         def handler(ret, state, arg):
             try:
                 value.append(handle_error(next(i), arg, len(value), option_name))
@@ -327,27 +362,33 @@ def cli_parse(argv):
             except StopIteration:
                 ret[key] = tuple(value)
                 return True, None
+
         return init
 
     def option_handler_const(key, value):
         def init(ret, state, arg):
             ret[key] = value
             return False, None
+
         return init
 
     def option_handler_single(key, f=lambda x: x):
         option_name = None
+
         def init(ret, state, arg):
             nonlocal option_name
             option_name = arg
             return False, handler
+
         def handler(ret, state, arg):
             ret[key] = handle_error(f, arg, 0, option_name)
             return False, None
+
         return init
 
     def options_failure_func(ret, state, arg):
         raise RuntimeError("Invalid option: " + arg)
+
     options_failure = (options_failure_func, None, None)
 
     def handle_error(f, x, i, opt):
@@ -410,6 +451,12 @@ def cli_parse(argv):
             option_handler_const(CLI_USE_GUROBI_RUNTIME, False), "",
             "measure the wall clock time and discard the running time result\n"
             "default"),
+        "--json-input": (
+            option_handler_const(CLI_JSON, True), "",
+            "parse json stdin to use as testcases instead of --input-dir\n"
+            f"""stdin format is [{{"{JSON_NAME}": name, "{JSON_INPUT}": input_file, "{JSON_OUTPUT}": output_file, """
+            f""""{JSON_ERROR}": error_file, "{JSON_SOLUTION}": solution_file}}...]\n"""
+            "output, error, solution are optional"),
     }
 
     def print_help():
@@ -431,7 +478,7 @@ def cli_parse(argv):
     # ret[CLI_USE_GUROBI_RUNTIME] = False
     ret = {}
     state = (False, None)
-    for arg in argv[1:] + (None, ):
+    for arg in argv[1:] + (None,):
         while True:
             if state[1]:
                 state = state[1](ret, state, arg)
@@ -440,11 +487,24 @@ def cli_parse(argv):
             if not state[0]:
                 break
 
-    # if not ret[CLI_COMMAND] or not ret[CLI_INPUT_DIR]:
-    if not (CLI_COMMAND in ret and CLI_INPUT_DIR in ret):
+    if not ret:
+        print_help()
+    if not (CLI_COMMAND in ret and (CLI_INPUT_DIR in ret or CLI_JSON in ret)):
         raise RuntimeError("Lacks necessary options")
 
     return ret
+
+
+def parse_json(s):
+    obj = json.loads(s)
+    tuple_keys = (JSON_NAME, JSON_INPUT, JSON_OUTPUT, JSON_ERROR, JSON_SOLUTION)
+    def p():
+        for x in obj:
+            if not (JSON_NAME in x and JSON_INPUT in x):
+                raise RuntimeError("JSON format error")
+            yield tuple(x.get(k) for k in tuple_keys)
+    return list(p())
+
 
 def main(*argv):
     options = cli_parse(argv)
@@ -462,15 +522,23 @@ def main(*argv):
 
     # print(dict((k, getattr(tester, k)) for k in tester_attr_map.values()))
 
-    test_dir_args_map = {
-        CLI_OUTPUT_DIR: "out_dir", CLI_ERROR_DIR: "err_dir",
-        CLI_SOL_DIR: "sol_dir", CLI_JOBS: "jobs"
-    }
-    test_dir_args = dict((test_dir_args_map[k], v) for (k, v) in options.items() if k in test_dir_args_map)
-    test_it = tester.test_dir(
-        in_dir=options[CLI_INPUT_DIR],
-        **test_dir_args
-    )
+    if options[CLI_JSON]:
+        args_map = {
+            CLI_JOBS: "jobs"
+        }
+        tuples = parse_json(sys.stdin.read())
+        args = dict((args_map[k], v) for (k, v) in options.items() if k in args_map)
+        test_it = tester.test_list(tuples=tuples, **args)
+    else:
+        args_map = {
+            CLI_OUTPUT_DIR: "out_dir", CLI_ERROR_DIR: "err_dir",
+            CLI_SOL_DIR: "sol_dir", CLI_JOBS: "jobs"
+        }
+        args = dict((args_map[k], v) for (k, v) in options.items() if k in args_map)
+        test_it = tester.test_dir(
+            in_dir=options[CLI_INPUT_DIR],
+            **args
+        )
 
     success_time_list = []
     correct_time_list = []
@@ -479,8 +547,7 @@ def main(*argv):
     incorrect_list = []
 
     for file_name, io_error, exception, incorrect, wct in test_it:
-        x = []
-        x.append(str(wct))
+        x = [str(wct)]
         if io_error:
             x.append("IO_ERROR")
             io_error_list.append(file_name)
@@ -500,21 +567,22 @@ def main(*argv):
         sys.stdout.flush()
 
     if io_error_list:
-        print("IO_ERROR:") # error while processing file
+        print("IO_ERROR:")  # error while processing file
         for f in io_error_list:
             print(f"  {f}")
     if exception_list:
-        print("EXCEPTION:") # unexpected results
+        print("EXCEPTION:")  # unexpected results
         for f in exception_list:
             print(f"  {f}")
     if incorrect_list:
-        print("INCORRECT:") # output not equal to solution or status is not optimal
+        print("INCORRECT:")  # output not equal to solution or status is not optimal
         for f in incorrect_list:
             print(f"  {f}")
     print("Avg time:", mean(map(lambda x: replace_inf(options.get(CLI_TIMEOUT, math.inf), x), correct_time_list)))
     print("Med time:", median(correct_time_list))
     print("Max time:", max(correct_time_list + [0]))
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main(*sys.argv))

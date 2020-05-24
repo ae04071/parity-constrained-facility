@@ -18,7 +18,7 @@ result_file="res/results/result1.txt"
 
   echo "impl3" > /dev/tty
   echo "==== impl3 ===="
-  scripts/test1.sh "$category" output-impl3-1 "${command[@]}" --impl3 --impl3-no-parity || exit $?
+  scripts/test1.sh "$category" output-impl3-1 "${command[@]}" --impl3 --assignment2 --no-open-parity || exit $?
 ) > "$result_file" || exit $?
 
 (
