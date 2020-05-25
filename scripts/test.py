@@ -522,7 +522,7 @@ def main(*argv):
 
     # print(dict((k, getattr(tester, k)) for k in tester_attr_map.values()))
 
-    if options[CLI_JSON]:
+    if options.get(CLI_JSON):
         args_map = {
             CLI_JOBS: "jobs"
         }
