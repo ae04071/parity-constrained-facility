@@ -35,6 +35,9 @@ add_executable(${OUTPUT}
         src/assign/method2.cpp
         src/assign/frontend.cpp
         src/assign/method3.cpp
+
+		src/t-join/tjoin.cpp
+        src/pcfl_impl4.cpp
         )
 target_link_libraries(${OUTPUT} gurobi_g++5.2 gurobi90)
 target_link_libraries(${OUTPUT} boost_system boost_program_options)

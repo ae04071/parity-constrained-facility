@@ -9,11 +9,11 @@ struct PCFLProbData {
 };
 
 struct PCFLSolution {
+    bool *open;
+    int *assign;
     double obj;
     double runtime;
     int status;
-    bool *open;
-    int *assign;
 };
 
 struct PCFLConfig {
@@ -40,5 +40,6 @@ extern double (*pcfl_find_assignment_methods[])(const struct PCFLProbData *data,
 void pcfl_impl1(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 void pcfl_impl2(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 void pcfl_impl3(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
+void pcfl_impl4(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 
 #endif

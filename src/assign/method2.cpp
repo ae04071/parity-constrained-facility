@@ -2,6 +2,7 @@
 // Created by jiho on 20. 4. 24..
 //
 
+#include <cstddef>
 #include <pcfl.h>
 #include "assign.h"
 #include <cmath>
@@ -22,8 +23,8 @@
 typedef int vertex;
 
 struct assign2_facility {
-    int index;
     int i;
+    int index;
     bool unconstrained;
     bool invalid;
     int size;
@@ -42,8 +43,8 @@ struct assign2_reassign {
 };
 
 struct assign2_demand {
-    int j;
     struct assign2_facility *initial;
+    int j;
     int reassign_count;
     struct assign2_reassign *reassign_list;
     vertex v;
