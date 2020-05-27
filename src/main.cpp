@@ -10,6 +10,7 @@
 #include <pcfl.h>
 #include <cassert>
 #include <cerrno>
+#include <fstream>
 
 static bool skip_prefix(const char **str, const char *pre) {
     const char *p = *str;
@@ -103,6 +104,11 @@ int main(int argc, char *argv[]) {
     }
     if (cli_build_only) {
         return 0;
+    }
+
+    if (config.verbose) {
+        auto log_file = new std::ofstream("pcfl.log", std::ofstream::app);
+        std::clog.rdbuf(log_file->rdbuf());
     }
 
     static char buf[1024];

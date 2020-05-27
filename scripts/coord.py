@@ -16,6 +16,7 @@ def input_lines():
     return lines
 
 def read_all(lines):
+    EXCEPT_LINE = ("EXCEPTION:", "INCORRECT:")
     data = {}
     ret = []
     method_names = []
@@ -25,6 +26,10 @@ def read_all(lines):
     cur_dir = ""
     first = True
     for line in lines:
+        if line.startswith(" "):
+            continue
+        if line in EXCEPT_LINE:
+            continue
         if state == 0:
             name = line.strip("=").strip()
             cur_method = name

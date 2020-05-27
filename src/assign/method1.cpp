@@ -151,6 +151,8 @@ struct aux_graph assign1_aux_graph(const PCFLProbData *data,
 //}
 
 /*
- * |V| = |S| + |D|
- * |E| = |D|(|D| - 1)/2 + |D||S n O|
+ * |V| = |S| + |D| (+ 1)
+ * |E| = (|D| choose 2) + |D||S n (O u U)| + (|S n U| choose 2)
+ * |E| >= |D| choose 2
+ * |E| <= (|D| choose 2) + |D||S| + ((|S| + 1) choose 2)
  */

@@ -3,7 +3,7 @@
 exe=cmake-build-release/PCFL
 categories=(300-300 500-500 700-700)
 name="$1"
-command=("$exe" --validate --verbose "${@:3}")
+command=("$exe" --validate --verbose "${@:2}")
 
 if [ -z "$name" ]; then
   echo "too few arguments" >&2
@@ -16,7 +16,7 @@ for category in "${categories[@]}"; do
   echo "$category" > /dev/tty
   (
     echo "==== $name ===="
-    scripts/test1.sh "$category" "output-$name" "${command[@]}" --impl3 || exit $?
+    scripts/test1.sh "$category" "output-$name" "${command[@]}" || exit $?
   ) > "$result_file" || exit $?
 
   (

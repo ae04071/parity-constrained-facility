@@ -1,6 +1,6 @@
 #!/bin/bash
 root=res/results
-methods=(default impl3 impl3-1 impl3-p)
+methods=("${@:1}")
 categories=(300-300 500-500 700-700)
 
 (
@@ -16,6 +16,5 @@ categories=(300-300 500-500 700-700)
       cat "$root/$m/$c.txt"
     done | scripts/coord.py --csv
   done
-) | tee "$root/tmp.csv" \
+) > "$root/tmp.csv"
 #  | xsel --clipboard
-  > /dev/null

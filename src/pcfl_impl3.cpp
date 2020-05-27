@@ -253,10 +253,22 @@ double Model::solve(bool *open, int *assign) {
     this->model.optimize();
 
     if (this->config.verbose) {
-        auto &out = std::cout;
-        out << std::fixed;
-        out.precision(6);
-        out << "find_assignment took: " << this->find_assignment_time << std::endl;
+        {
+            auto &out = std::cout;
+            out << std::fixed;
+            out.precision(6);
+            out << "find_assignment took: " << this->find_assignment_time << std::endl;
+        }
+        {
+            auto &out = std::clog;
+            out << std::fixed;
+            out.precision(6);
+            double assign_time = this->find_assignment_time;
+            double total_time = this->model.get(GRB_DoubleAttr_Runtime);
+            out << "assgin_time: " << assign_time << std::endl;
+            out << "total_time: " << total_time << std::endl;
+            out << "assign_portion: " << (assign_time / total_time * 100) << "%" << std::endl;
+        }
     }
 
     return this->sol_obj;
@@ -302,7 +314,28 @@ void Model::Callback::mipsol() {
             this->tmp_open[i] = y_val[i] >= 0.5;
         }
         time_measure tm1;
-        double obj = this->owner->find_assignment(&this->owner->data, this->tmp_open, this->tmp_assign, this->owner->sol_obj);
+        double obj;
+        {
+            bool verbose = this->owner->config.verbose;
+            auto &out = std::clog;
+            if (verbose) {
+                out << std::fixed;
+                out.precision(6);
+                out << "find_assignment" << std::endl;
+                out << " Open:";
+                for (int i = 0; i < m; i++) {
+                    if (this->tmp_open[i]) {
+                        out << " " << i;
+                    }
+                }
+                out << std::endl;
+            }
+            time_measure _m1(" time: ", "s", out, verbose);
+            obj = this->owner->find_assignment(&this->owner->data, this->tmp_open, this->tmp_assign,
+                    this->owner->sol_obj);
+            if (verbose)
+                out << " obj: " << obj << std::endl;
+        }
         this->owner->find_assignment_time += tm1.get();
         if (obj < this->owner->sol_obj) {
             this->owner->sol_obj = obj;
