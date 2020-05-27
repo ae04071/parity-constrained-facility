@@ -40,6 +40,8 @@ extern double (*pcfl_find_assignment_methods[])(const struct PCFLProbData *data,
 void pcfl_impl1(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 void pcfl_impl2(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 void pcfl_impl3(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
+
+void pcfl_impl3_with_initial(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 void pcfl_impl4(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 
 #endif

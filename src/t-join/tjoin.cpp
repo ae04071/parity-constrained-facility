@@ -292,13 +292,13 @@ namespace tjoin {
 		double *_dist = new double[n*n], *dist = new double[V*V];
 		calculate_dist(n, m, data->assign_cost, _dist);
 		for(int i=0;i<V;i++) for(int j=0;j<V;j++) {
-			int u=i<n ? i : refinv[i-V], v = j<n ? j : refinv[j-V];
+			int u=i<n ? i : refinv[i-n], v = j<n ? j : refinv[j-n];
 			dist[i*V+j] = _dist[u*n+v];
 		}
 
 		double *openCost = new double[V];
 		for(int i=0;i<V;i++)
-			openCost[i] = data->opening_cost[i<n ? i : refinv[i-V]];
+			openCost[i] = data->opening_cost[i<n ? i : refinv[i-n]];
 			
 		delete []_dist;
 		delete []refnum;

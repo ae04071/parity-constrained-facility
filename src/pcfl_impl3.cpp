@@ -17,7 +17,7 @@ public:
     explicit Model(const PCFLProbData *in_data, const PCFLConfig *in_config);
     Model() = delete;
     ~Model();
-    double solve(bool *open, int *assign);
+    double solve(bool *open, int *assign, bool initial=false);
 
     double find_assignment_time;
 
@@ -66,11 +66,20 @@ private:
     void set_properties();
 
     friend void pcfl_impl3(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
+    friend void pcfl_impl3_with_initial(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 };
 
 void pcfl_impl3(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol) {
     Model model(data, config);
     sol->obj = model.solve(sol->open, sol->assign);
+    sol->runtime = model.model.get(GRB_DoubleAttr_Runtime);
+//    sol->status = model.model.get(GRB_IntAttr_Status);
+    sol->status = GRB_OPTIMAL;
+}
+
+void pcfl_impl3_with_initial(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol) {
+    Model model(data, config);
+    sol->obj = model.solve(sol->open, sol->assign, true);
     sol->runtime = model.model.get(GRB_DoubleAttr_Runtime);
 //    sol->status = model.model.get(GRB_IntAttr_Status);
     sol->status = GRB_OPTIMAL;
@@ -240,7 +249,7 @@ void Model::set_properties() {
     this->model.setCallback(&this->callback);
 }
 
-double Model::solve(bool *open, int *assign) {
+double Model::solve(bool *open, int *assign, bool initial) {
     this->sol_obj = INFINITY;
     this->sol_open = open;
     this->sol_assign = assign;
@@ -250,6 +259,20 @@ double Model::solve(bool *open, int *assign) {
 
     this->find_assignment_time = 0;
 
+	if(initial) {
+		for(int i=0; i<data.m; i++) {
+			int cnt = 0;
+			vars.y[i].set(GRB_DoubleAttr_Start, open[i] ? 1.0 : 0.0);
+			for(int j=0; j<data.n; j++) {
+				vars.x[i*data.n + j].set(GRB_DoubleAttr_Start, assign[j]==i ? 1.0 : 0.0);
+				cnt += assign[j] == i;
+			}
+			if(data.parity[i] != 0) {
+				vars.parity[i].set(GRB_DoubleAttr_Start, std::max(0, cnt-data.parity[i]%2)/2);
+			}
+		}
+	}
+	
     this->model.optimize();
 
     if (this->config.verbose) {

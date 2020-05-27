@@ -54,6 +54,8 @@ int main(int argc, char *argv[]) {
             config.which_impl = 2;
         else if (strcmp(a, "--impl3") == 0)
             config.which_impl = 3;
+        else if (strcmp(a, "--impl4") == 0)
+            config.which_impl = 4;
         else if (strcmp(a, "--assignment1") == 0)
             config.assignment_method = 1;
         else if (strcmp(a, "--assignment2") == 0)
@@ -144,6 +146,10 @@ int main(int argc, char *argv[]) {
         break;
     case 3:
         pcfl_impl3(&data, &config, &sol);
+        break;
+    case 4:
+        pcfl_impl4(&data, &config, &sol);
+		pcfl_impl3_with_initial(&data, &config, &sol);
         break;
     default:
         assert(false);
