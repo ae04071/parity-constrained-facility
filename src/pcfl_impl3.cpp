@@ -267,7 +267,7 @@ double Model::solve(bool *open, int *assign, bool initial) {
 				vars.x[i*data.n + j].set(GRB_DoubleAttr_Start, assign[j]==i ? 1.0 : 0.0);
 				cnt += assign[j] == i;
 			}
-			if(data.parity[i] != 0) {
+			if(config.impl3_use_parity && data.parity[i] != 0) {
 				vars.parity[i].set(GRB_DoubleAttr_Start, std::max(0, cnt-data.parity[i]%2)/2);
 			}
 		}
