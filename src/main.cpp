@@ -137,6 +137,8 @@ int main(int argc, char *argv[]) {
             .open = guard_open.get(),
             .assign = guard_assign.get(),
     };
+
+	double unc_time = 0;
     switch (config.which_impl) {
     case 1:
         pcfl_impl1(&data, &config, &sol);
@@ -149,7 +151,8 @@ int main(int argc, char *argv[]) {
         break;
     case 4:
         pcfl_impl4(&data, &config, &sol);
-		pcfl_impl3_with_initial(&data, &config, &sol);
+		unc_time = sol.runtime;
+		//pcfl_impl3_with_initial(&data, &config, &sol);
         break;
     default:
         assert(false);
@@ -225,6 +228,7 @@ int main(int argc, char *argv[]) {
         out.precision(6);
         out << sol.runtime << std::endl;
         out << sol.status << std::endl;
+		out << unc_time << std::endl;
     }
     return 0;
 }

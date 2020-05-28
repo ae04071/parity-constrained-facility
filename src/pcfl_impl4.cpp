@@ -46,6 +46,7 @@ private:
         int *tmp_assign;
 
         void cutoff();
+		void mipsol();
     };
 
     Callback callback;
@@ -56,17 +57,21 @@ private:
 
     double obj_best_bound;
 
+	bool init_proc;
+
     void init_vars();
     void init_constrs();
     void set_properties();
 
+	time_measure tm;
     friend void pcfl_impl4(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
 };
 
 void pcfl_impl4(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol) {
     BModel model(data, config);
     sol->obj = model.solve(sol->open, sol->assign);
-    sol->runtime = 0.0;
+    sol->runtime = model.model.get(GRB_DoubleAttr_Runtime);
+    //sol->runtime = model.tm.get();
 //    sol->status = model.model.get(GRB_IntAttr_Status);
     sol->status = GRB_OPTIMAL;
 }
@@ -81,7 +86,7 @@ BModel::BModel(const PCFLProbData *in_data, const PCFLConfig *in_config)
         : data(*in_data), config(*in_config), env(), model(this->env),
           vars(), callback(this),
           sol_obj(0), sol_open(nullptr), sol_assign(nullptr), obj_best_bound(),
-          find_assignment_time(), find_assignment() {
+          find_assignment_time(), find_assignment(), init_proc(false) {
     /*
      * initialization is in order of declaration
      * ref: https://en.cppreference.com/w/cpp/language/initializer_list
@@ -197,11 +202,14 @@ double BModel::solve(bool *open, int *assign) {
 	}
 	tjoin::approximate_unconstraint(&data, y, x);
 
-	for(int i=0;i<data.m;i++)
-		open[i] = y[i] > 0.5;
-	for(int i=0;i<data.m;i++) for(int j=0;j<data.n;j++) if(x[i*data.n + j] > 0.5) {
-		assign[j] = i;
+	for(int i=0;i<data.m;i++) {
+		vars.y[i].set(GRB_DoubleAttr_Start, y[i]);
+		for(int j=0;j<data.n;j++) vars.x[i*data.n+j].set(GRB_DoubleAttr_Start, x[i*data.n + j]);
 	}
+	init_proc = true;
+
+	this->model.set(GRB_IntParam_Presolve, 0);
+	this->model.optimize();
 
     if (this->config.verbose) {
         auto &out = std::cout;
@@ -228,12 +236,16 @@ BModel::Callback::~Callback() {
 
 void BModel::Callback::callback() {
 //    printf("callback: %d\n", where);
+	if(!owner->init_proc) return;
+
     switch (where) {
     case GRB_CB_MIP:
         this->owner->obj_best_bound = this->getDoubleInfo(GRB_CB_MIP_OBJBND);
         break;
     case GRB_CB_MIPSOL:
         this->owner->obj_best_bound = this->getDoubleInfo(GRB_CB_MIPSOL_OBJBND);
+        this->cutoff();
+        this->mipsol();
         break;
     case GRB_CB_MIPNODE:
         this->owner->obj_best_bound = this->getDoubleInfo(GRB_CB_MIPNODE_OBJBND);
@@ -241,6 +253,43 @@ void BModel::Callback::callback() {
     default:
         break;
     }
+    this->cutoff();
+}
+
+void BModel::Callback::mipsol() {
+    int m = this->owner->data.m, n = this->owner->data.n;
+    if (this->getDoubleInfo(GRB_CB_MIPSOL_OBJ) < this->owner->sol_obj) {
+        std::unique_ptr<double[]> y_val(this->getSolution(this->owner->vars.y, m));
+        for (int i = 0; i < m; i++) {
+            assert(fmin(fabs(y_val[i]), fabs(y_val[i] - 1)) < this->owner->model.get(GRB_DoubleParam_IntFeasTol));
+            this->tmp_open[i] = y_val[i] >= 0.5;
+        }
+        time_measure tm1;
+        double obj = this->owner->find_assignment(&this->owner->data, this->tmp_open, this->tmp_assign, this->owner->sol_obj);
+        this->owner->find_assignment_time += tm1.get();
+        if (obj < this->owner->sol_obj) {
+            this->owner->sol_obj = obj;
+            memcpy(this->owner->sol_open, this->tmp_open, m * sizeof(*this->owner->sol_open));
+            memcpy(this->owner->sol_assign, this->tmp_assign, n * sizeof(*this->owner->sol_assign));
+            //cutoff..
+        }
+    }
+    {
+        GRBLinExpr expr = 0;
+        for (int i = 0; i < m; i++) {
+            if (this->tmp_open[i]) {
+                expr += 1 - this->owner->vars.y[i];
+            } else {
+                expr += this->owner->vars.y[i];
+            }
+        }
+        this->addLazy(expr >= 1);
+    }
+}
+
+void BModel::Callback::cutoff() {
+    if (this->owner->sol_obj <= this->owner->obj_best_bound)
+        this->abort();
 }
 
 /*
