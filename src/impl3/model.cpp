@@ -2,71 +2,12 @@
 // Created by jiho on 20. 4. 24..
 //
 
-#include <pcfl.h>
+#include "common.h"
 #include <list>
 #include <tuple>
-#include <memory>
 #include <cmath>
 #include <cstring>
-#include <LPRelaxation.h>
-#include <cassert>
 #include <dbg.h>
-
-class Model {
-public:
-    explicit Model(const PCFLProbData *in_data, const PCFLConfig *in_config);
-    Model() = delete;
-    ~Model();
-    double solve(bool *open, int *assign);
-
-    double find_assignment_time;
-
-private:
-    GRBEnv env;
-    GRBModel model;
-    PCFLProbData data;
-    PCFLConfig config;
-    struct {
-        GRBVar *x, *y;
-        GRBVar *parity, *open_facility_parity;
-    } vars;
-
-    double (*find_assignment)
-            (const struct PCFLProbData *data, const bool *open, int *to_facility, double cutoff);
-
-
-    class Callback : public GRBCallback {
-    public:
-        explicit Callback(Model *p_owner);
-        Callback() = delete;
-        ~Callback() override;
-    protected:
-        void callback() override;
-    private:
-        Model *owner;
-        bool *tmp_open;
-        int *tmp_assign;
-
-        void mipsol();
-
-        void cutoff();
-    };
-
-    Callback callback;
-
-    double sol_obj;
-    bool *sol_open;
-    int *sol_assign;
-
-    double obj_best_bound;
-
-    void init_vars();
-    void init_constrs();
-    void init_cuts();
-    void set_properties();
-
-    friend void pcfl_impl3(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol);
-};
 
 void pcfl_impl3(const PCFLProbData *data, const PCFLConfig *config, PCFLSolution *sol) {
     Model model(data, config);
@@ -86,7 +27,7 @@ Model::Model(const PCFLProbData *in_data, const PCFLConfig *in_config)
         : data(*in_data), config(*in_config), env(), model(this->env),
           vars(), callback(this),
           sol_obj(0), sol_open(nullptr), sol_assign(nullptr), obj_best_bound(),
-          find_assignment_time(), find_assignment() {
+          find_assignment_time(), find_assignment(), thread_pool() {
     /*
      * initialization is in order of declaration
      * ref: https://en.cppreference.com/w/cpp/language/initializer_list
@@ -104,6 +45,9 @@ Model::Model(const PCFLProbData *in_data, const PCFLConfig *in_config)
     this->init_constrs();
     this->init_cuts();
     this->set_properties();
+
+    if (in_config->impl3_concurrent)
+        this->thread_pool = new ThreadPool(in_config->assignment_threads);
 }
 
 Model::~Model() {
@@ -252,6 +196,9 @@ double Model::solve(bool *open, int *assign) {
 
     this->model.optimize();
 
+    if (this->config.impl3_threadpool_abort)
+        this->thread_pool->abort();
+
     if (this->config.verbose) {
         {
             auto &out = std::cout;
@@ -272,94 +219,6 @@ double Model::solve(bool *open, int *assign) {
     }
 
     return this->sol_obj;
-}
-
-Model::Callback::Callback(Model *p_owner)
-        : owner(p_owner), tmp_open(nullptr), tmp_assign(nullptr) {
-    int m = this->owner->data.m, n = this->owner->data.n;
-    this->tmp_open = new bool[m];
-    this->tmp_assign = new int[n];
-}
-Model::Callback::~Callback() {
-    delete[] this->tmp_open;
-    delete[] this->tmp_assign;
-}
-
-void Model::Callback::callback() {
-//    printf("callback: %d\n", where);
-    switch (where) {
-    case GRB_CB_MIP:
-        this->owner->obj_best_bound = this->getDoubleInfo(GRB_CB_MIP_OBJBND);
-        break;
-    case GRB_CB_MIPSOL:
-        this->owner->obj_best_bound = this->getDoubleInfo(GRB_CB_MIPSOL_OBJBND);
-        this->cutoff();
-        this->mipsol();
-        break;
-    case GRB_CB_MIPNODE:
-        this->owner->obj_best_bound = this->getDoubleInfo(GRB_CB_MIPNODE_OBJBND);
-        break;
-    default:
-        break;
-    }
-    this->cutoff();
-}
-
-void Model::Callback::mipsol() {
-    int m = this->owner->data.m, n = this->owner->data.n;
-    if (this->getDoubleInfo(GRB_CB_MIPSOL_OBJ) < this->owner->sol_obj) {
-        std::unique_ptr<double[]> y_val(this->getSolution(this->owner->vars.y, m));
-        for (int i = 0; i < m; i++) {
-            assert(fmin(fabs(y_val[i]), fabs(y_val[i] - 1)) < this->owner->model.get(GRB_DoubleParam_IntFeasTol));
-            this->tmp_open[i] = y_val[i] >= 0.5;
-        }
-        time_measure tm1;
-        double obj;
-        {
-            bool verbose = this->owner->config.verbose;
-            auto &out = std::clog;
-            if (verbose) {
-                out << std::fixed;
-                out.precision(6);
-                out << "find_assignment" << std::endl;
-                out << " Open:";
-                for (int i = 0; i < m; i++) {
-                    if (this->tmp_open[i]) {
-                        out << " " << i;
-                    }
-                }
-                out << std::endl;
-            }
-            time_measure _m1(" time: ", "s", out, verbose);
-            obj = this->owner->find_assignment(&this->owner->data, this->tmp_open, this->tmp_assign,
-                    this->owner->sol_obj);
-            if (verbose)
-                out << " obj: " << obj << std::endl;
-        }
-        this->owner->find_assignment_time += tm1.get();
-        if (obj < this->owner->sol_obj) {
-            this->owner->sol_obj = obj;
-            memcpy(this->owner->sol_open, this->tmp_open, m * sizeof(*this->owner->sol_open));
-            memcpy(this->owner->sol_assign, this->tmp_assign, n * sizeof(*this->owner->sol_assign));
-            //cutoff..
-        }
-    }
-    {
-        GRBLinExpr expr = 0;
-        for (int i = 0; i < m; i++) {
-            if (this->tmp_open[i]) {
-                expr += 1 - this->owner->vars.y[i];
-            } else {
-                expr += this->owner->vars.y[i];
-            }
-        }
-        this->addLazy(expr >= 1);
-    }
-}
-
-void Model::Callback::cutoff() {
-    if (this->owner->sol_obj <= this->owner->obj_best_bound)
-        this->abort();
 }
 
 double (*pcfl_find_assignment_methods[])

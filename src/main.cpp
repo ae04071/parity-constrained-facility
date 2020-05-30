@@ -36,6 +36,9 @@ int main(int argc, char *argv[]) {
             .assignment_method = 1,
             .impl3_use_parity = false,
             .use_open_parity = true,
+            .impl3_concurrent = false,
+            .impl3_threadpool_abort = false,
+            .assignment_threads = 0,
     };
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
@@ -71,6 +74,22 @@ int main(int argc, char *argv[]) {
             config.use_open_parity = false;
         else if (strcmp(a, "--validate") == 0)
             config.validate_feasibility = true;
+        else if (skip_prefix(&a, "--impl3-assign-threads=")) {
+            long value;
+            {
+                char *end = nullptr;
+                errno = 0;
+                value = strtol(a, &end, 0);
+                if (errno != 0 || end == a || end == nullptr || *end != '\0') {
+                    fprintf(stderr, "Conversion error for option --threads=<x>\n");
+                    return 1;
+                }
+            }
+            config.assignment_threads = (int)value;
+            config.impl3_concurrent = true;
+        }
+        else if (strcmp(a, "--impl3-no-assign-thread") == 0)
+            config.impl3_concurrent = false;
         else if (skip_prefix(&a, "--threads=")) {
             long value;
             {

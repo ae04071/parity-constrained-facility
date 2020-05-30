@@ -1,4 +1,5 @@
 add_definitions(-DPERFECT_MATCHING_DOUBLE)
+add_definitions(-D_NDEBUG)
 
 add_library(blossom5
         misc.cpp

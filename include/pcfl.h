@@ -27,6 +27,8 @@ struct PCFLConfig {
     int assignment_method;
     bool impl3_use_parity;
     bool use_open_parity;
+    bool impl3_concurrent;
+    bool impl3_threadpool_abort;
     int assignment_threads;
 };
 
