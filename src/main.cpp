@@ -90,6 +90,10 @@ int main(int argc, char *argv[]) {
         }
         else if (strcmp(a, "--impl3-no-assign-thread") == 0)
             config.impl3_concurrent = false;
+        else if (strcmp(a, "--impl3-threadpool-abort") == 0)
+            config.impl3_threadpool_abort = true;
+        else if (strcmp(a, "--impl3-no-threadpool-abort") == 0)
+            config.impl3_threadpool_abort = false;
         else if (skip_prefix(&a, "--threads=")) {
             long value;
             {

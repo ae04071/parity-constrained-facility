@@ -10,21 +10,20 @@ if [ -z "$name" ]; then
   exit 1
 fi
 
-result_file="res/results/result1.txt"
+res_dir="res/results/$name"
+log_file="pcfl.log"
+
+mkdir -p "$res_dir" || exit $?
 
 for category in "${categories[@]}"; do
+  prefix="$res_dir/$category"
+  raw="$prefix.txt"
+
   echo "$category" > /dev/tty
   (
     echo "==== $name ===="
     scripts/test1.sh "$category" "output-$name" "${command[@]}" || exit $?
-  ) > "$result_file" || exit $?
-
-  (
-    res_dir="res/results/$name"
-    prefix="$res_dir/$category"
-    fix="${prefix}.txt"
-
-    mkdir -p "$res_dir" || exit $?
-    cp "$result_file" "$fix" || exit $?
-  )
+  ) > "$raw" || exit $?
 done
+
+mv "$log_file" "$res_dir/$log_file"

@@ -13,6 +13,7 @@
 #include <thread>
 #include <condition_variable>
 #include <queue>
+#include <atomic>
 
 class ThreadPool {
 public:
@@ -22,13 +23,12 @@ public:
     void *post(const std::function<void()> &func, double priority);
     void *post(std::function<void()> &&func, double priority);
 
-    void join(); // close();
-    void abort();
     void join(void *task); //omit
     void abort(void *task); //omit
 
-    void open();
-    void close();
+    void start();
+    void join();
+    void abort();
 
     size_t queue_size() const;
 
@@ -46,6 +46,7 @@ private:
     std::mutex mutex;
     std::condition_variable condition;
     std::vector<std::thread> workers;
+    std::atomic<size_t> waiting_threads;
 };
 
 class Model {
